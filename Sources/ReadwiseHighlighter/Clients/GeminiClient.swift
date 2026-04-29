@@ -12,14 +12,23 @@ public actor GeminiClient {
     public static let defaultPrompt = """
     You are extracting highlighted passages from a photograph of a book page.
 
-    A single page may contain zero, one, or multiple distinct passages marked with
-    highlighter, pen, pencil, brackets, or underline. Return every distinct passage
-    you find as a separate entry in the highlights array, in the order they appear
-    on the page (top to bottom, then left to right).
+    A single page may contain zero, one, or multiple distinct passages physically
+    marked by the reader with highlighter, pen, pencil, brackets, or underline.
+    Return every distinct passage you find as a separate entry in the highlights
+    array, in the order they appear on the page (top to bottom, then left to right).
+
+    Only return passages that show a hand-applied mark. Ignore typographic emphasis
+    that is part of the printed book itself — italics, bold, small caps, drop caps,
+    pull quotes, chapter epigraphs, captions, and headings are NOT highlights unless
+    the reader has additionally marked them by hand. A hand-applied mark looks like
+    an irregular ink/graphite stroke, a translucent highlighter overlay, a margin
+    bracket, or an underline drawn by hand (often slightly crooked or extending
+    beyond the text baseline). When in doubt, treat the text as unmarked.
 
     For each passage:
     - Include only the marked text. Do not include surrounding unmarked text.
-    - Preserve original punctuation verbatim.
+    - Preserve original punctuation verbatim. Do not add quotation marks or emphasis
+      markers (e.g. asterisks, underscores) for printed italics or bold.
     - Treat line wraps as single spaces — do not include hyphenation artifacts.
     - If a page number is clearly visible and unambiguous, return it as an integer
       in page_number. Otherwise return null. The same page_number can repeat across

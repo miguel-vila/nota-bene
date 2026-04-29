@@ -8,6 +8,7 @@ See [`spec.md`](./spec.md) for the full product spec.
 
 ```
 Package.swift                          Swift Package (library + tests)
+project.yml                            XcodeGen spec for the iOS App target
 Sources/ReadwiseHighlighter/
   Models/                              Book, ExtractionResult, PendingHighlight
   Clients/                             GeminiClient, ReadwiseClient, OpenLibraryClient (URLSession)
@@ -15,9 +16,9 @@ Sources/ReadwiseHighlighter/
   ViewModels/                          AppState, CaptureFlow, BookSearch
   UI/                                  SwiftUI views + AVFoundation camera (iOS only)
 Tests/ReadwiseHighlighterTests/        XCTest suite (run with `swift test`)
-App/                                   Files for the iOS App target (Xcode wrapper)
+App/                                   Files for the iOS App target
   HighlighterApp.swift                 @main entry, wires up AppState
-  Info.plist                           Camera + Photo Library usage descriptions
+  Info.plist                           Bundle metadata (regenerated from project.yml)
 ```
 
 ## Running tests
@@ -32,13 +33,20 @@ The `UIKit` / `AVFoundation` views are guarded by `#if canImport(UIKit)` and onl
 
 ## Building the iOS app
 
-The repo ships as a Swift Package plus loose `App/` files. Wire them into an Xcode iOS app target:
+The Xcode project is generated from `project.yml` via [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
-1. Open Xcode → **File → New → Project → iOS → App**, language Swift, interface SwiftUI, target iOS 17+.
-2. Delete the auto-generated `ContentView.swift` and `App.swift`.
-3. Drag `App/HighlighterApp.swift` into the new target. Replace the new target's `Info.plist` with `App/Info.plist` (or copy the two `NS*UsageDescription` keys into the existing one).
-4. Add this directory as a local Swift Package: **File → Add Package Dependencies → Add Local…** and pick the repo root. Add the `ReadwiseHighlighter` library to the app target.
-5. Build & run on a real device (the camera does not work in the simulator).
+```sh
+brew install xcodegen        # one-time
+xcodegen generate             # regenerates ReadwiseHighlighter.xcodeproj
+open ReadwiseHighlighter.xcodeproj
+```
+
+Then in Xcode:
+
+1. Select the **ReadwiseHighlighter** target → **Signing & Capabilities** → pick your team.
+2. Plug in your iPhone, select it as the run destination, and hit ⌘R.
+
+The camera does not work in the simulator — you need a real device.
 
 On first launch you'll be asked for a Gemini API key and a Readwise token; they're stored in the iOS Keychain.
 

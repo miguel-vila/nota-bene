@@ -1,16 +1,24 @@
 import Foundation
 
 public struct ExtractionResult: Codable, Equatable, Sendable {
-    public let highlightedText: String
-    public let pageNumber: Int?
+    public struct Highlight: Codable, Equatable, Sendable {
+        public let text: String
+        public let pageNumber: Int?
 
-    public init(highlightedText: String, pageNumber: Int?) {
-        self.highlightedText = highlightedText
-        self.pageNumber = pageNumber
+        public init(text: String, pageNumber: Int?) {
+            self.text = text
+            self.pageNumber = pageNumber
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case text
+            case pageNumber = "page_number"
+        }
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case highlightedText = "highlighted_text"
-        case pageNumber = "page_number"
+    public let highlights: [Highlight]
+
+    public init(highlights: [Highlight]) {
+        self.highlights = highlights
     }
 }

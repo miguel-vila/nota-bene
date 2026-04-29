@@ -26,6 +26,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
   - **Open Library search API** (`https://openlibrary.org/search.json?q=...&limit=10&fields=title,author_name,key,cover_i`): for books the user has not highlighted before. This is the common case — most first-time highlights for a new book will not match anything in Readwise yet. Results from this source are labelled "New book".
 - The search field debounces input (~300ms) and queries both sources in parallel. Readwise matches appear above Open Library matches. Duplicates (same title + author) are de-duplicated, preferring the Readwise entry.
 - Open Library is preferred over Google Books because it has no API key requirement and broader long-tail coverage. The implementer can swap to Google Books if needed without changing the rest of the app.
+- Each result displays a small cover thumbnail alongside the title and author (from the Readwise book record's cover URL or Open Library's cover ID).
 - Recently used books appear at the top of the list when the search field is empty.
 - "Add book manually" option at the bottom of the list (for the rare case where a book is missing from both sources):
   - Form: title (required), author (optional).
@@ -45,11 +46,12 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 ### 3. Extraction
 
 - The captured image is sent to the Gemini API (multimodal model, e.g. `gemini-2.5-flash` for speed; configurable).
-- The request uses structured output (JSON schema) with the following fields:
-  - `highlighted_text` (string): the text marked with highlighter, pen, pencil, bracket, or underline. Verbatim, preserving punctuation. Empty string if none detected.
+- The request uses structured output (JSON schema) and returns an array of highlights, each with:
+  - `text` (string): the text marked with highlighter, pen, pencil, bracket, or underline. Verbatim, preserving punctuation.
   - `page_number` (integer | null): the page number visible in the photo, if any.
+- A single photo may contain multiple distinct highlighted passages — the model returns each as a separate entry in reading order. An empty array means no highlight was detected.
 - The prompt instructs the model to:
-  - Return only the marked passage, not the surrounding unmarked text.
+  - Return only the marked passages, not the surrounding unmarked text.
   - Preserve original line wrapping as spaces (no hyphenation artifacts).
   - Return `null` for `page_number` if no page number is visible or unambiguous.
 - A loading indicator is shown while the request is in flight.
@@ -57,16 +59,17 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 
 ### 4. Review
 
-- Two editable fields:
-  - **Text** (multiline): pre-filled with `highlighted_text`. Editable.
-  - **Page number** (numeric): pre-filled if detected, otherwise empty. Editable.
-- The selected book is shown above the fields. Tapping it returns to book selection (preserving the captured photo and extracted text in memory).
-- Primary action: **Save**. Disabled if text is empty.
-- Secondary action: **Cancel**. Discards the highlight and returns to the camera.
+- One editable group per detected highlight, each with:
+  - **Text** (multiline): pre-filled, editable.
+  - **Page number** (numeric): pre-filled if detected, editable.
+- Users can remove individual highlights or add a blank one to type manually.
+- The selected book is shown above the highlights. Tapping it returns to book selection (preserving the captured photo and extracted highlights in memory).
+- Primary action: **Save**. Disabled if no highlight has any text. All non-empty highlights are submitted together.
+- Secondary action: **Cancel**. Discards the highlights and returns to the camera.
 
 ### 5. Submit to Readwise
 
-- `POST /api/v2/highlights/` with payload:
+- `POST /api/v2/highlights/` with payload (one entry per highlight from the Review screen):
 
   ```json
   {
@@ -97,8 +100,8 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 
 ## Data model
 
-- `Book`: `{ id, title, author?, source: "readwise" | "manual", lastUsedAt }`
-- `PendingHighlight` (in-memory only during a session): `{ book, imageData, extractedText, pageNumber }`
+- `Book`: `{ id, title, author?, source: "readwise" | "open_library" | "manual", lastUsedAt, coverURL? }`
+- `PendingHighlight` (in-memory only during a session): `{ book, imageData, highlights: [{ text, pageNumber? }] }`
 - Recently used books and the cached Readwise book list are persisted locally (Core Data, SwiftData, or a JSON file — implementer's choice).
 
 ## Error handling
@@ -151,7 +154,6 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 ## Out of scope for v1
 
 - Tags or notes attached to highlights.
-- Detecting and submitting multiple separate highlights from a single photo.
 - Offline queue with background retry.
 - Editing existing Readwise highlights.
 - iPad layout, macOS Catalyst.

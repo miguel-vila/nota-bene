@@ -12,12 +12,32 @@ public final class CaptureFlow: ObservableObject {
         case submitting
     }
 
+    public struct EditableHighlight: Identifiable, Equatable {
+        public let id: UUID
+        public var text: String
+        public var pageNumberInput: String
+
+        public init(id: UUID = UUID(), text: String = "", pageNumberInput: String = "") {
+            self.id = id
+            self.text = text
+            self.pageNumberInput = pageNumberInput
+        }
+
+        public func parsedPageNumber() -> Int? {
+            let trimmed = pageNumberInput.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+            return Int(trimmed)
+        }
+
+        public var trimmedText: String {
+            text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
     @Published public var stage: Stage = .capture
     @Published public var book: Book
     @Published public var imageData: Data?
-    @Published public var extractedText: String = ""
-    @Published public var pageNumber: Int?
-    @Published public var pageNumberInput: String = ""
+    @Published public var highlights: [EditableHighlight] = []
     @Published public var lastError: String?
     @Published public var didDetectEmptyHighlight: Bool = false
 
@@ -46,26 +66,42 @@ public final class CaptureFlow: ObservableObject {
     }
 
     public func applyExtraction(_ result: ExtractionResult) {
-        extractedText = result.highlightedText
-        pageNumber = result.pageNumber
-        pageNumberInput = result.pageNumber.map(String.init) ?? ""
-        didDetectEmptyHighlight = result.highlightedText.isEmpty
+        let mapped = result.highlights.map {
+            EditableHighlight(
+                text: $0.text,
+                pageNumberInput: $0.pageNumber.map(String.init) ?? ""
+            )
+        }
+        if mapped.isEmpty {
+            highlights = [EditableHighlight()]
+            didDetectEmptyHighlight = true
+        } else {
+            highlights = mapped
+            didDetectEmptyHighlight = false
+        }
         stage = .review
     }
 
     public func skipExtraction() {
-        extractedText = ""
-        pageNumber = nil
-        pageNumberInput = ""
+        highlights = [EditableHighlight()]
         didDetectEmptyHighlight = true
         stage = .review
     }
 
+    public func addBlankHighlight() {
+        highlights.append(EditableHighlight())
+    }
+
+    public func removeHighlight(id: UUID) {
+        highlights.removeAll { $0.id == id }
+        if highlights.isEmpty {
+            highlights = [EditableHighlight()]
+        }
+    }
+
     public func reset(keepingBook keep: Bool = true) {
         imageData = nil
-        extractedText = ""
-        pageNumber = nil
-        pageNumberInput = ""
+        highlights = []
         didDetectEmptyHighlight = false
         lastError = nil
         stage = .capture
@@ -74,14 +110,12 @@ public final class CaptureFlow: ObservableObject {
         }
     }
 
-    public func parsedPageNumber() -> Int? {
-        let trimmed = pageNumberInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return Int(trimmed)
+    public var savableHighlights: [EditableHighlight] {
+        highlights.filter { !$0.trimmedText.isEmpty }
     }
 
     public var canSave: Bool {
-        !extractedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !savableHighlights.isEmpty
     }
 }
 #endif

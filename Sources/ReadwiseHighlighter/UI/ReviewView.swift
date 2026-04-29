@@ -25,14 +25,31 @@ struct ReviewView: View {
                 }
             }
 
-            Section("Highlight") {
-                TextEditor(text: $flow.extractedText)
-                    .frame(minHeight: 140)
+            ForEach($flow.highlights) { $highlight in
+                Section {
+                    TextEditor(text: $highlight.text)
+                        .frame(minHeight: 120)
+                    TextField("Page number (optional)", text: $highlight.pageNumberInput)
+                        .keyboardType(.numberPad)
+                    if flow.highlights.count > 1 {
+                        Button(role: .destructive) {
+                            flow.removeHighlight(id: highlight.id)
+                        } label: {
+                            Label("Remove highlight", systemImage: "trash")
+                        }
+                    }
+                } header: {
+                    Text(headerTitle(for: highlight))
+                }
             }
 
-            Section("Page number") {
-                TextField("Optional", text: $flow.pageNumberInput)
-                    .keyboardType(.numberPad)
+            Section {
+                Button {
+                    flow.addBlankHighlight()
+                } label: {
+                    Label("Add another highlight", systemImage: "plus.circle")
+                }
+                .disabled(flow.stage == .submitting)
             }
 
             if let error = flow.lastError {
@@ -48,7 +65,7 @@ struct ReviewView: View {
                     if flow.stage == .submitting {
                         ProgressView()
                     } else {
-                        Text("Save to Readwise")
+                        Text(saveButtonTitle)
                     }
                 }
                 .disabled(!flow.canSave || flow.stage == .submitting)
@@ -61,6 +78,20 @@ struct ReviewView: View {
         }
         .navigationTitle("Review")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func headerTitle(for highlight: CaptureFlow.EditableHighlight) -> String {
+        guard flow.highlights.count > 1,
+              let index = flow.highlights.firstIndex(where: { $0.id == highlight.id }) else {
+            return "Highlight"
+        }
+        return "Highlight \(index + 1)"
+    }
+
+    private var saveButtonTitle: String {
+        let count = flow.savableHighlights.count
+        if count <= 1 { return "Save to Readwise" }
+        return "Save \(count) highlights to Readwise"
     }
 }
 #endif

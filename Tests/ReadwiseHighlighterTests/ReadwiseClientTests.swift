@@ -103,6 +103,36 @@ final class ReadwiseClientTests: XCTestCase {
         }
     }
 
+    func test_makeBody_batchSerializesEachHighlight() throws {
+        let inputs = [
+            ReadwiseClient.HighlightInput(text: "first", title: "Dune", author: "Herbert", pageNumber: 1),
+            ReadwiseClient.HighlightInput(text: "second", title: "Dune", author: "Herbert", pageNumber: nil)
+        ]
+        let data = try ReadwiseClient.makeBody(inputs)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let highlights = try XCTUnwrap(json["highlights"] as? [[String: Any]])
+        XCTAssertEqual(highlights.count, 2)
+        XCTAssertEqual(highlights[0]["text"] as? String, "first")
+        XCTAssertEqual(highlights[0]["location"] as? Int, 1)
+        XCTAssertEqual(highlights[1]["text"] as? String, "second")
+        XCTAssertNil(highlights[1]["location"])
+    }
+
+    func test_createHighlights_batch_postsAllInOneRequest() async throws {
+        let mock = MockHTTPClient { _ in MockHTTPClient.status(200) }
+        let client = ReadwiseClient(token: "t", http: mock,
+                                     baseURL: URL(string: "https://example.test")!)
+        try await client.createHighlights([
+            .init(text: "a", title: "Dune", author: nil, pageNumber: nil),
+            .init(text: "b", title: "Dune", author: nil, pageNumber: 12)
+        ])
+        XCTAssertEqual(mock.requests.count, 1)
+        let body = try XCTUnwrap(mock.requests.first?.httpBody)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let highlights = try XCTUnwrap(json["highlights"] as? [[String: Any]])
+        XCTAssertEqual(highlights.count, 2)
+    }
+
     func test_createHighlight_postsToHighlightsEndpoint() async throws {
         let mock = MockHTTPClient { _ in MockHTTPClient.status(200) }
         let client = ReadwiseClient(token: "t", http: mock,

@@ -119,12 +119,17 @@ public actor ReadwiseClient {
     }
 
     public func createHighlight(_ input: HighlightInput) async throws {
+        try await createHighlights([input])
+    }
+
+    public func createHighlights(_ inputs: [HighlightInput]) async throws {
+        guard !inputs.isEmpty else { return }
         let url = baseURL.appendingPathComponent("/api/v2/highlights/")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         authorize(&request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try Self.makeBody(input)
+        request.httpBody = try Self.makeBody(inputs)
         let (data, response) = try await http.data(for: request)
         guard let httpResp = response as? HTTPURLResponse else {
             throw ReadwiseError.requestFailed(status: -1, body: "")
@@ -141,19 +146,26 @@ public actor ReadwiseClient {
     }
 
     public static func makeBody(_ input: HighlightInput) throws -> Data {
-        var highlight: [String: Any] = [
-            "text": input.text,
-            "title": input.title,
-            "source_type": input.sourceType,
-            "category": input.category
-        ]
-        if let author = input.author, !author.isEmpty {
-            highlight["author"] = author
+        try makeBody([input])
+    }
+
+    public static func makeBody(_ inputs: [HighlightInput]) throws -> Data {
+        let highlights: [[String: Any]] = inputs.map { input in
+            var highlight: [String: Any] = [
+                "text": input.text,
+                "title": input.title,
+                "source_type": input.sourceType,
+                "category": input.category
+            ]
+            if let author = input.author, !author.isEmpty {
+                highlight["author"] = author
+            }
+            if let page = input.pageNumber {
+                highlight["location"] = page
+                highlight["location_type"] = "page"
+            }
+            return highlight
         }
-        if let page = input.pageNumber {
-            highlight["location"] = page
-            highlight["location_type"] = "page"
-        }
-        return try JSONSerialization.data(withJSONObject: ["highlights": [highlight]])
+        return try JSONSerialization.data(withJSONObject: ["highlights": highlights])
     }
 }

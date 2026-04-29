@@ -66,15 +66,18 @@ public struct CaptureFlowContainer: View {
             flow.lastError = "Readwise key missing — open Settings."
             return
         }
+        let inputs = flow.savableHighlights.map {
+            ReadwiseClient.HighlightInput(
+                text: $0.trimmedText,
+                title: flow.book.title,
+                author: flow.book.author,
+                pageNumber: $0.parsedPageNumber()
+            )
+        }
+        guard !inputs.isEmpty else { return }
         flow.stage = .submitting
-        let input = ReadwiseClient.HighlightInput(
-            text: flow.extractedText.trimmingCharacters(in: .whitespacesAndNewlines),
-            title: flow.book.title,
-            author: flow.book.author,
-            pageNumber: flow.parsedPageNumber()
-        )
         do {
-            try await client.createHighlight(input)
+            try await client.createHighlights(inputs)
             flow.lastError = nil
             flow.reset()
         } catch ReadwiseError.invalidToken {

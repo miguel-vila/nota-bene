@@ -10,17 +10,26 @@ public enum GeminiError: Error, Equatable {
 public actor GeminiClient {
     public static let defaultModel = "gemini-2.5-flash"
     public static let defaultPrompt = """
-    You are extracting a highlighted passage from a photograph of a book page.
+    You are extracting highlighted passages from a photograph of a book page.
 
-    Return only the text marked with highlighter, pen, pencil, brackets, or underline.
-    Do not include any surrounding unmarked text.
-    Preserve original punctuation verbatim.
-    Treat line wraps as single spaces — do not include hyphenation artifacts.
+    A single page may contain zero, one, or multiple distinct passages marked with
+    highlighter, pen, pencil, brackets, or underline. Return every distinct passage
+    you find as a separate entry in the highlights array, in the order they appear
+    on the page (top to bottom, then left to right).
 
-    If a page number is clearly visible and unambiguous, return it as an integer.
-    Otherwise return null.
+    For each passage:
+    - Include only the marked text. Do not include surrounding unmarked text.
+    - Preserve original punctuation verbatim.
+    - Treat line wraps as single spaces — do not include hyphenation artifacts.
+    - If a page number is clearly visible and unambiguous, return it as an integer
+      in page_number. Otherwise return null. The same page_number can repeat across
+      passages on the same page.
 
-    If no highlight is detected, return an empty string for highlighted_text.
+    If two marks are clearly part of the same continuous sentence or paragraph,
+    treat them as a single passage. If they are separated by unmarked text or are
+    on different lines/paragraphs, treat them as separate passages.
+
+    If no highlight is detected on the page, return an empty highlights array.
     """
 
     private let apiKey: String
@@ -82,10 +91,19 @@ public actor GeminiClient {
                 "responseSchema": [
                     "type": "object",
                     "properties": [
-                        "highlighted_text": ["type": "string"],
-                        "page_number": ["type": "integer", "nullable": true]
+                        "highlights": [
+                            "type": "array",
+                            "items": [
+                                "type": "object",
+                                "properties": [
+                                    "text": ["type": "string"],
+                                    "page_number": ["type": "integer", "nullable": true]
+                                ],
+                                "required": ["text"]
+                            ]
+                        ]
                     ],
-                    "required": ["highlighted_text"]
+                    "required": ["highlights"]
                 ]
             ]
         ]
@@ -121,9 +139,19 @@ public actor GeminiClient {
             return strict
         }
         if let json = try? JSONSerialization.jsonObject(with: textData) as? [String: Any] {
-            let highlighted = (json["highlighted_text"] as? String) ?? ""
-            let page = json["page_number"] as? Int
-            return ExtractionResult(highlightedText: highlighted, pageNumber: page)
+            if let rawHighlights = json["highlights"] as? [[String: Any]] {
+                let highlights = rawHighlights.compactMap { item -> ExtractionResult.Highlight? in
+                    guard let text = item["text"] as? String else { return nil }
+                    return ExtractionResult.Highlight(text: text, pageNumber: item["page_number"] as? Int)
+                }
+                return ExtractionResult(highlights: highlights)
+            }
+            // Backwards-compat with the old single-highlight shape, if any layer still emits it.
+            if let single = json["highlighted_text"] as? String {
+                return ExtractionResult(highlights: [
+                    .init(text: single, pageNumber: json["page_number"] as? Int)
+                ])
+            }
         }
         throw GeminiError.decoding("payload not valid JSON")
     }

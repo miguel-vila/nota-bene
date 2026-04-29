@@ -2,7 +2,7 @@ import XCTest
 @testable import ReadwiseHighlighter
 
 final class GeminiClientTests: XCTestCase {
-    func test_makeBody_includesInlineDataAndSchema() throws {
+    func test_makeBody_includesInlineDataAndArraySchema() throws {
         let body = try GeminiClient.makeBody(
             imageData: Data([0x01, 0x02, 0x03]),
             mimeType: "image/png",
@@ -15,47 +15,50 @@ final class GeminiClientTests: XCTestCase {
         let inline = try XCTUnwrap(parts.first?["inline_data"] as? [String: Any])
         XCTAssertEqual(inline["mime_type"] as? String, "image/png")
         XCTAssertEqual(inline["data"] as? String, Data([0x01, 0x02, 0x03]).base64EncodedString())
-
-        let prompt = parts.last?["text"] as? String
-        XCTAssertEqual(prompt, "extract")
+        XCTAssertEqual(parts.last?["text"] as? String, "extract")
 
         let gen = try XCTUnwrap(json["generationConfig"] as? [String: Any])
         XCTAssertEqual(gen["responseMimeType"] as? String, "application/json")
         let schema = try XCTUnwrap(gen["responseSchema"] as? [String: Any])
-        XCTAssertEqual(schema["type"] as? String, "object")
         let properties = try XCTUnwrap(schema["properties"] as? [String: Any])
-        XCTAssertNotNil(properties["highlighted_text"])
-        XCTAssertNotNil(properties["page_number"])
+        let highlights = try XCTUnwrap(properties["highlights"] as? [String: Any])
+        XCTAssertEqual(highlights["type"] as? String, "array")
+        let items = try XCTUnwrap(highlights["items"] as? [String: Any])
+        let itemProps = try XCTUnwrap(items["properties"] as? [String: Any])
+        XCTAssertNotNil(itemProps["text"])
+        XCTAssertNotNil(itemProps["page_number"])
     }
 
-    func test_parseResponse_extractsWrappedJson() throws {
+    func test_parseResponse_extractsArray() throws {
         let envelope = """
         {
           "candidates": [{
             "content": {
-              "parts": [{"text": "{\\"highlighted_text\\": \\"a quote\\", \\"page_number\\": 7}"}]
+              "parts": [{"text": "{\\"highlights\\": [{\\"text\\": \\"a quote\\", \\"page_number\\": 7}, {\\"text\\": \\"another\\", \\"page_number\\": null}]}"}]
             }
           }]
         }
         """.data(using: .utf8)!
         let result = try GeminiClient.parseResponse(envelope)
-        XCTAssertEqual(result.highlightedText, "a quote")
-        XCTAssertEqual(result.pageNumber, 7)
+        XCTAssertEqual(result.highlights.count, 2)
+        XCTAssertEqual(result.highlights[0].text, "a quote")
+        XCTAssertEqual(result.highlights[0].pageNumber, 7)
+        XCTAssertEqual(result.highlights[1].text, "another")
+        XCTAssertNil(result.highlights[1].pageNumber)
     }
 
-    func test_parseResponse_lenientWhenPageNumberOmitted() throws {
+    func test_parseResponse_emptyHighlights() throws {
         let envelope = """
         {
           "candidates": [{
             "content": {
-              "parts": [{"text": "{\\"highlighted_text\\": \\"\\"}"}]
+              "parts": [{"text": "{\\"highlights\\": []}"}]
             }
           }]
         }
         """.data(using: .utf8)!
         let result = try GeminiClient.parseResponse(envelope)
-        XCTAssertEqual(result.highlightedText, "")
-        XCTAssertNil(result.pageNumber)
+        XCTAssertTrue(result.highlights.isEmpty)
     }
 
     func test_parseResponse_throwsOnMissingContent() {
@@ -88,7 +91,7 @@ final class GeminiClientTests: XCTestCase {
 
     func test_extractHighlight_setsApiKeyHeader() async throws {
         let envelope = """
-        {"candidates":[{"content":{"parts":[{"text":"{\\"highlighted_text\\":\\"x\\"}"}]}}]}
+        {"candidates":[{"content":{"parts":[{"text":"{\\"highlights\\":[{\\"text\\":\\"x\\"}]}"}]}}]}
         """.data(using: .utf8)!
         let mock = MockHTTPClient { _ in
             MockHTTPClient.ok(envelope)

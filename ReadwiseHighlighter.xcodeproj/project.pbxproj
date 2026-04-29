@@ -3,26 +3,26 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7E7B26D30A1DF5D0A9085844 /* HighlighterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F096E193882FC339E9735BAB /* HighlighterApp.swift */; };
-		9E1E3A5BF95193B6FBC99127 /* ReadwiseHighlighter in Frameworks */ = {isa = PBXBuildFile; productRef = 17A14B2452D5394D82A6CCE3 /* ReadwiseHighlighter */; };
+		04E3DB597BBD8BABC01356C0 /* HighlighterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F096E193882FC339E9735BAB /* HighlighterApp.swift */; };
+		C18DBAC9E08D26DB924C3A00 /* ReadwiseHighlighter in Frameworks */ = {isa = PBXBuildFile; productRef = 8CCBD6DD0CA5BEAEE593CC18 /* ReadwiseHighlighter */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		10CA44B8C92C5A15D559289A /* ReadwiseHighlighterApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ReadwiseHighlighterApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A19A233E096A6056DE482034 /* readwise-auto-hightlighter */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "readwise-auto-hightlighter"; path = .; sourceTree = SOURCE_ROOT; };
-		CBF3372EE7E31D0DC8CFA0DD /* ReadwiseHighlighter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ReadwiseHighlighter.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F096E193882FC339E9735BAB /* HighlighterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlighterApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		B9CC7D3DE16A70EBDB801917 /* Frameworks */ = {
+		75170D87E207842121CC1A53 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9E1E3A5BF95193B6FBC99127 /* ReadwiseHighlighter in Frameworks */,
+				C18DBAC9E08D26DB924C3A00 /* ReadwiseHighlighter in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -40,7 +40,7 @@
 		5ED1EC49FC5183E01F22A986 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				CBF3372EE7E31D0DC8CFA0DD /* ReadwiseHighlighter.app */,
+				10CA44B8C92C5A15D559289A /* ReadwiseHighlighterApp.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -65,23 +65,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		035EF5CA02D09F777A3C7FC4 /* ReadwiseHighlighter */ = {
+		6E27FD78E16FF53133476A47 /* ReadwiseHighlighterApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 591253E1A2BCD41219CBD55F /* Build configuration list for PBXNativeTarget "ReadwiseHighlighter" */;
+			buildConfigurationList = 075B1ED1023F254C16E5F1BD /* Build configuration list for PBXNativeTarget "ReadwiseHighlighterApp" */;
 			buildPhases = (
-				278D6A7DA76666766FCFB027 /* Sources */,
-				B9CC7D3DE16A70EBDB801917 /* Frameworks */,
+				6C5D06914C36A26ABC8B63F6 /* Sources */,
+				75170D87E207842121CC1A53 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = ReadwiseHighlighter;
+			name = ReadwiseHighlighterApp;
 			packageProductDependencies = (
-				17A14B2452D5394D82A6CCE3 /* ReadwiseHighlighter */,
+				8CCBD6DD0CA5BEAEE593CC18 /* ReadwiseHighlighter */,
 			);
-			productName = ReadwiseHighlighter;
-			productReference = CBF3372EE7E31D0DC8CFA0DD /* ReadwiseHighlighter.app */;
+			productName = ReadwiseHighlighterApp;
+			productReference = 10CA44B8C92C5A15D559289A /* ReadwiseHighlighterApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -93,7 +93,8 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					035EF5CA02D09F777A3C7FC4 = {
+					6E27FD78E16FF53133476A47 = {
+						DevelopmentTeam = 99ABQRQY2V;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -111,27 +112,52 @@
 			packageReferences = (
 				56DF737C70811BE67937C03A /* XCLocalSwiftPackageReference "." */,
 			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				035EF5CA02D09F777A3C7FC4 /* ReadwiseHighlighter */,
+				6E27FD78E16FF53133476A47 /* ReadwiseHighlighterApp */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
-		278D6A7DA76666766FCFB027 /* Sources */ = {
+		6C5D06914C36A26ABC8B63F6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7E7B26D30A1DF5D0A9085844 /* HighlighterApp.swift in Sources */,
+				04E3DB597BBD8BABC01356C0 /* HighlighterApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		95042FAD1F4184A6EBE9D9DD /* Release */ = {
+		0701C028CE0EF19D717B0F70 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 99ABQRQY2V;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.miguelvila.readwise.highlighter;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		4150CDC37D460391377FEE4B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -211,30 +237,6 @@
 			};
 			name = Release;
 		};
-		C50DF14F9DF3B470C8F97E08 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 99ABQRQY2V;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.miguelvila.readwise.highlighter;
-				SDKROOT = iphoneos;
-				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
-			};
-			name = Debug;
-		};
 		FB5EC7426357CFBEC088D9EE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -301,20 +303,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		075B1ED1023F254C16E5F1BD /* Build configuration list for PBXNativeTarget "ReadwiseHighlighterApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0701C028CE0EF19D717B0F70 /* Debug */,
+				4150CDC37D460391377FEE4B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		439BD20AAD879A6102F172FB /* Build configuration list for PBXProject "ReadwiseHighlighter" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FB5EC7426357CFBEC088D9EE /* Debug */,
 				B6F3C54094D3BCFF8A1A6BAD /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		591253E1A2BCD41219CBD55F /* Build configuration list for PBXNativeTarget "ReadwiseHighlighter" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C50DF14F9DF3B470C8F97E08 /* Debug */,
-				95042FAD1F4184A6EBE9D9DD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -329,7 +331,7 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		17A14B2452D5394D82A6CCE3 /* ReadwiseHighlighter */ = {
+		8CCBD6DD0CA5BEAEE593CC18 /* ReadwiseHighlighter */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = ReadwiseHighlighter;
 		};

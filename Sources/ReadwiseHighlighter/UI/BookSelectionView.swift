@@ -177,13 +177,47 @@ private struct BookRow: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(book.title).font(.body).foregroundStyle(.primary)
-                if let author = book.author, !author.isEmpty {
-                    Text(author).font(.footnote).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                CoverThumbnail(url: book.coverURL)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(book.title).font(.body).foregroundStyle(.primary)
+                    if let author = book.author, !author.isEmpty {
+                        Text(author).font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
             }
         }
+    }
+}
+
+private struct CoverThumbnail: View {
+    let url: URL?
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.secondary.opacity(0.15))
+            if let url {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().scaledToFill()
+                    case .empty:
+                        ProgressView().controlSize(.mini)
+                    case .failure:
+                        Image(systemName: "book.closed")
+                            .foregroundStyle(.secondary)
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else {
+                Image(systemName: "book.closed")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 36, height: 52)
     }
 }
 

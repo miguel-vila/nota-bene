@@ -12,7 +12,7 @@ public struct Book: Codable, Identifiable, Hashable, Sendable {
     public var author: String?
     public var source: Source
     public var lastUsedAt: Date?
-    public var coverID: Int?
+    public var coverURL: URL?
     public var readwiseID: Int?
 
     public init(
@@ -21,7 +21,7 @@ public struct Book: Codable, Identifiable, Hashable, Sendable {
         author: String?,
         source: Source,
         lastUsedAt: Date? = nil,
-        coverID: Int? = nil,
+        coverURL: URL? = nil,
         readwiseID: Int? = nil
     ) {
         self.id = id
@@ -29,8 +29,12 @@ public struct Book: Codable, Identifiable, Hashable, Sendable {
         self.author = author
         self.source = source
         self.lastUsedAt = lastUsedAt
-        self.coverID = coverID
+        self.coverURL = coverURL
         self.readwiseID = readwiseID
+    }
+
+    public static func openLibraryCoverURL(coverID: Int, size: String = "M") -> URL? {
+        URL(string: "https://covers.openlibrary.org/b/id/\(coverID)-\(size).jpg")
     }
 
     public static func dedupKey(title: String, author: String?) -> String {

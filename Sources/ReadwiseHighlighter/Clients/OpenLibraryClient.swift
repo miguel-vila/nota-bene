@@ -45,12 +45,13 @@ public actor OpenLibraryClient {
             guard let title = doc.title, !title.isEmpty else { return nil }
             let author = doc.author_name?.first
             let id = "ol:" + (doc.key ?? UUID().uuidString)
+            let coverURL = doc.cover_i.flatMap { Book.openLibraryCoverURL(coverID: $0) }
             return Book(
                 id: id,
                 title: title,
                 author: author,
                 source: .openLibrary,
-                coverID: doc.cover_i
+                coverURL: coverURL
             )
         }
     }

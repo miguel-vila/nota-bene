@@ -66,6 +66,7 @@ public actor ReadwiseClient {
                 let id: Int
                 let title: String?
                 let author: String?
+                let cover_image_url: String?
             }
             let next: String?
             let results: [Result]
@@ -108,6 +109,7 @@ public actor ReadwiseClient {
                     title: title,
                     author: r.author,
                     source: .readwise,
+                    coverURL: r.cover_image_url.flatMap(URL.init(string:)),
                     readwiseID: r.id
                 ))
             }

@@ -14,10 +14,11 @@ final class OpenLibraryClientTests: XCTestCase {
         XCTAssertEqual(books.count, 2)
         XCTAssertEqual(books[0].title, "Dune")
         XCTAssertEqual(books[0].author, "Frank Herbert")
-        XCTAssertEqual(books[0].coverID, 1234)
+        XCTAssertEqual(books[0].coverURL?.absoluteString,
+                       "https://covers.openlibrary.org/b/id/1234-M.jpg")
         XCTAssertEqual(books[0].source, .openLibrary)
         XCTAssertEqual(books[0].id, "ol:/works/OL1W")
-        XCTAssertNil(books[1].coverID)
+        XCTAssertNil(books[1].coverURL)
     }
 
     func test_search_emptyQueryReturnsEmpty() async throws {

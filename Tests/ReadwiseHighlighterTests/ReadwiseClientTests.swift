@@ -66,7 +66,7 @@ final class ReadwiseClientTests: XCTestCase {
     func test_listBooks_followsPagination() async throws {
         let page1 = """
         {"next": "https://example.test/api/v2/books/?page=2",
-         "results":[{"id":1,"title":"A","author":"X"}]}
+         "results":[{"id":1,"title":"A","author":"X","cover_image_url":"https://img.test/1.jpg"}]}
         """.data(using: .utf8)!
         let page2 = """
         {"next": null, "results":[{"id":2,"title":"B","author":null}]}
@@ -85,6 +85,8 @@ final class ReadwiseClientTests: XCTestCase {
         XCTAssertEqual(calls, 2)
         XCTAssertEqual(books.map(\.id), ["rw:1", "rw:2"])
         XCTAssertEqual(books.first?.source, .readwise)
+        XCTAssertEqual(books.first?.coverURL?.absoluteString, "https://img.test/1.jpg")
+        XCTAssertNil(books.last?.coverURL)
     }
 
     func test_listBooks_invalidToken_throws() async {

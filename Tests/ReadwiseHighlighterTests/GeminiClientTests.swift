@@ -2,9 +2,9 @@ import XCTest
 @testable import ReadwiseHighlighter
 
 final class GeminiClientTests: XCTestCase {
-    func test_makeBody_includesInlineDataAndArraySchema() throws {
+    func test_makeBody_singleImageIncludesInlineDataAndArraySchema() throws {
         let body = try GeminiClient.makeBody(
-            imageData: Data([0x01, 0x02, 0x03]),
+            images: [Data([0x01, 0x02, 0x03])],
             mimeType: "image/png",
             prompt: "extract"
         )
@@ -12,6 +12,7 @@ final class GeminiClientTests: XCTestCase {
 
         let contents = try XCTUnwrap(json["contents"] as? [[String: Any]])
         let parts = try XCTUnwrap(contents.first?["parts"] as? [[String: Any]])
+        XCTAssertEqual(parts.count, 2)
         let inline = try XCTUnwrap(parts.first?["inline_data"] as? [String: Any])
         XCTAssertEqual(inline["mime_type"] as? String, "image/png")
         XCTAssertEqual(inline["data"] as? String, Data([0x01, 0x02, 0x03]).base64EncodedString())
@@ -27,6 +28,23 @@ final class GeminiClientTests: XCTestCase {
         let itemProps = try XCTUnwrap(items["properties"] as? [String: Any])
         XCTAssertNotNil(itemProps["text"])
         XCTAssertNotNil(itemProps["page_number"])
+    }
+
+    func test_makeBody_multipleImagesAreOrderedBeforePrompt() throws {
+        let body = try GeminiClient.makeBody(
+            images: [Data([0xAA]), Data([0xBB])],
+            mimeType: "image/jpeg",
+            prompt: "extract"
+        )
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let contents = try XCTUnwrap(json["contents"] as? [[String: Any]])
+        let parts = try XCTUnwrap(contents.first?["parts"] as? [[String: Any]])
+        XCTAssertEqual(parts.count, 3)
+        let firstInline = try XCTUnwrap(parts[0]["inline_data"] as? [String: Any])
+        XCTAssertEqual(firstInline["data"] as? String, Data([0xAA]).base64EncodedString())
+        let secondInline = try XCTUnwrap(parts[1]["inline_data"] as? [String: Any])
+        XCTAssertEqual(secondInline["data"] as? String, Data([0xBB]).base64EncodedString())
+        XCTAssertEqual(parts[2]["text"] as? String, "extract")
     }
 
     func test_parseResponse_extractsArray() throws {
@@ -70,7 +88,7 @@ final class GeminiClientTests: XCTestCase {
         }
     }
 
-    func test_extractHighlight_invalidKey_throws() async throws {
+    func test_extractHighlights_invalidKey_throws() async throws {
         let mock = MockHTTPClient { _ in
             MockHTTPClient.status(401)
         }
@@ -80,7 +98,7 @@ final class GeminiClientTests: XCTestCase {
             baseURL: URL(string: "https://example.test/v1beta")!
         )
         do {
-            _ = try await client.extractHighlight(from: Data([0xFF]))
+            _ = try await client.extractHighlights(fromImages: [Data([0xFF])])
             XCTFail("expected throw")
         } catch GeminiError.invalidKey {
             // ok
@@ -89,7 +107,7 @@ final class GeminiClientTests: XCTestCase {
         }
     }
 
-    func test_extractHighlight_setsApiKeyHeader() async throws {
+    func test_extractHighlights_setsApiKeyHeader() async throws {
         let envelope = """
         {"candidates":[{"content":{"parts":[{"text":"{\\"highlights\\":[{\\"text\\":\\"x\\"}]}"}]}}]}
         """.data(using: .utf8)!
@@ -101,9 +119,21 @@ final class GeminiClientTests: XCTestCase {
             http: mock,
             baseURL: URL(string: "https://example.test/v1beta")!
         )
-        _ = try await client.extractHighlight(from: Data([0x00]))
+        _ = try await client.extractHighlights(fromImages: [Data([0x00])])
         XCTAssertEqual(mock.requests.first?.value(forHTTPHeaderField: "x-goog-api-key"), "secret-key")
         let path = mock.requests.first?.url?.path ?? ""
         XCTAssertTrue(path.contains(":generateContent"), "path was \(path)")
+    }
+
+    func test_extractHighlights_emptyImagesReturnsEmptyWithoutNetwork() async throws {
+        let mock = MockHTTPClient { _ in MockHTTPClient.status(500) }
+        let client = GeminiClient(
+            apiKey: "k",
+            http: mock,
+            baseURL: URL(string: "https://example.test/v1beta")!
+        )
+        let result = try await client.extractHighlights(fromImages: [])
+        XCTAssertTrue(result.highlights.isEmpty)
+        XCTAssertEqual(mock.requests.count, 0)
     }
 }

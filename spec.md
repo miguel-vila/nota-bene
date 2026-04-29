@@ -39,13 +39,14 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 - Header shows the currently selected book title (tap to change).
 - Capture button takes a still photo.
 - Alternative: a "Pick from library" button to choose an existing photo (e.g. one taken earlier offline).
-- After capture, a preview screen with two actions:
-  - Retake → return to camera.
-  - Use photo → go to Extraction.
+- After capture, a preview screen with three actions:
+  - Retake → discard captured pages and return to camera.
+  - Turn page → keep the captured page(s) and return to camera to capture the next page (for highlights that span a page break). Capped at 2 pages per submission.
+  - Use photo(s) → go to Extraction with all captured pages.
 
 ### 3. Extraction
 
-- The captured image is sent to the Gemini API (multimodal model, e.g. `gemini-2.5-flash` for speed; configurable).
+- The captured image(s) are sent to the Gemini API (multimodal model, e.g. `gemini-2.5-flash` for speed; configurable) in a single request — multiple page images are passed as separate `inline_data` parts in reading order, so the model can natively merge a highlight that wraps across the page break instead of forcing the client to stitch.
 - The request uses structured output (JSON schema) and returns an array of highlights, each with:
   - `text` (string): the text marked with highlighter, pen, pencil, bracket, or underline. Verbatim, preserving punctuation.
   - `page_number` (integer | null): the page number visible in the photo, if any.
@@ -54,6 +55,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
   - Return only the marked passages, not the surrounding unmarked text.
   - Preserve original line wrapping as spaces (no hyphenation artifacts).
   - Return `null` for `page_number` if no page number is visible or unambiguous.
+  - When multiple page images are provided, treat them as consecutive pages and merge any passage that continues across the page break into a single entry.
 - A loading indicator is shown while the request is in flight.
 - Failures (network, invalid key, model error) show an error with a Retry action and a "Skip extraction, type manually" action that takes the user to Review with empty fields.
 
@@ -101,7 +103,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 ## Data model
 
 - `Book`: `{ id, title, author?, source: "readwise" | "open_library" | "manual", lastUsedAt, coverURL? }`
-- `PendingHighlight` (in-memory only during a session): `{ book, imageData, highlights: [{ text, pageNumber? }] }`
+- `PendingHighlight` (in-memory only during a session): `{ book, images: [Data], highlights: [{ text, pageNumber? }] }`
 - Recently used books and the cached Readwise book list are persisted locally (Core Data, SwiftData, or a JSON file — implementer's choice).
 
 ## Error handling

@@ -40,7 +40,7 @@ public struct CaptureFlowContainer: View {
     }
 
     private func runExtraction() async {
-        guard let imageData = flow.imageData else {
+        guard !flow.images.isEmpty else {
             flow.skipExtraction()
             return
         }
@@ -50,7 +50,7 @@ public struct CaptureFlowContainer: View {
             return
         }
         do {
-            let result = try await client.extractHighlight(from: imageData)
+            let result = try await client.extractHighlights(fromImages: flow.images)
             flow.applyExtraction(result)
         } catch GeminiError.invalidKey {
             flow.lastError = "Gemini key rejected — update it in Settings."
@@ -167,17 +167,45 @@ private struct PreviewScreen: View {
 
     var body: some View {
         VStack {
-            if let data = flow.imageData, let image = UIImage(data: data) {
+            if flow.images.count == 1, let image = UIImage(data: flow.images[0]) {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
                     .padding()
+            } else if flow.images.count > 1 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Array(flow.images.enumerated()), id: \.offset) { index, data in
+                            if let image = UIImage(data: data) {
+                                VStack(spacing: 4) {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(maxHeight: 360)
+                                    Text("Page \(index + 1)")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
             }
+
             HStack {
                 Button("Retake", role: .cancel) { flow.retake() }
                     .buttonStyle(.bordered)
+                if flow.canTurnPage {
+                    Button {
+                        flow.turnPage()
+                    } label: {
+                        Label("Turn page", systemImage: "book.pages")
+                    }
+                    .buttonStyle(.bordered)
+                }
                 Spacer()
-                Button("Use photo") {
+                Button(useButtonTitle) {
                     Task { await flow.startExtraction() }
                 }
                 .buttonStyle(.borderedProminent)
@@ -186,6 +214,10 @@ private struct PreviewScreen: View {
         }
         .navigationTitle(flow.book.title)
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var useButtonTitle: String {
+        flow.images.count > 1 ? "Use \(flow.images.count) photos" : "Use photo"
     }
 }
 

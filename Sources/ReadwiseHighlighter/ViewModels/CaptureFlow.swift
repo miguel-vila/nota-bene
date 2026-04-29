@@ -34,9 +34,11 @@ public final class CaptureFlow: ObservableObject {
         }
     }
 
+    public static let maxPagesPerCapture = 2
+
     @Published public var stage: Stage = .capture
     @Published public var book: Book
-    @Published public var imageData: Data?
+    @Published public var images: [Data] = []
     @Published public var highlights: [EditableHighlight] = []
     @Published public var lastError: String?
     @Published public var didDetectEmptyHighlight: Bool = false
@@ -50,17 +52,35 @@ public final class CaptureFlow: ObservableObject {
     }
 
     public func acceptPhoto(_ data: Data) {
-        imageData = data
+        guard images.count < Self.maxPagesPerCapture else { return }
+        images.append(data)
         stage = .preview
     }
 
-    public func retake() {
-        imageData = nil
+    public func turnPage() {
+        guard canTurnPage else { return }
         stage = .capture
     }
 
+    public func retake() {
+        images = []
+        stage = .capture
+    }
+
+    public func removeLastImage() {
+        guard !images.isEmpty else { return }
+        images.removeLast()
+        if images.isEmpty {
+            stage = .capture
+        }
+    }
+
+    public var canTurnPage: Bool {
+        images.count < Self.maxPagesPerCapture
+    }
+
     public func startExtraction() async {
-        guard imageData != nil else { return }
+        guard !images.isEmpty else { return }
         stage = .extracting
         lastError = nil
     }
@@ -100,7 +120,7 @@ public final class CaptureFlow: ObservableObject {
     }
 
     public func reset(keepingBook keep: Bool = true) {
-        imageData = nil
+        images = []
         highlights = []
         didDetectEmptyHighlight = false
         lastError = nil

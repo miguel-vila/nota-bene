@@ -10,12 +10,25 @@ public enum GeminiError: Error, Equatable {
 public actor GeminiClient {
     public static let defaultModel = "gemini-2.5-flash"
     public static let defaultPrompt = """
-    You are extracting highlighted passages from a photograph of a book page.
+    You are extracting highlighted passages from one or more photographs of
+    consecutive book pages.
 
-    A single page may contain zero, one, or multiple distinct passages physically
-    marked by the reader with highlighter, pen, pencil, brackets, or underline.
-    Return every distinct passage you find as a separate entry in the highlights
-    array, in the order they appear on the page (top to bottom, then left to right).
+    The images are provided in reading order: the first image is the first page,
+    the second image (if present) is the page that immediately follows it, and so
+    on. Process them in that order.
+
+    A page may contain zero, one, or multiple distinct passages physically marked
+    by the reader with highlighter, pen, pencil, brackets, or underline. Return
+    every distinct passage you find as a separate entry in the highlights array,
+    in reading order across all pages (top to bottom, then left to right, then
+    next page).
+
+    If a single highlighted passage continues from the bottom of one page to the
+    top of the next page, merge it into a single highlights entry — do not return
+    two separate entries. Stitch the text across the page break naturally
+    (collapse the page boundary into a single space, and resolve any hyphenation
+    at the seam by joining the word parts without a hyphen). Set page_number to
+    the page where the passage begins.
 
     Only return passages that show a hand-applied mark. Ignore typographic emphasis
     that is part of the printed book itself — italics, bold, small caps, drop caps,
@@ -34,11 +47,11 @@ public actor GeminiClient {
       in page_number. Otherwise return null. The same page_number can repeat across
       passages on the same page.
 
-    If two marks are clearly part of the same continuous sentence or paragraph,
-    treat them as a single passage. If they are separated by unmarked text or are
-    on different lines/paragraphs, treat them as separate passages.
+    If two marks on the same page are clearly part of the same continuous sentence
+    or paragraph, treat them as a single passage. If they are separated by unmarked
+    text or are on different lines/paragraphs, treat them as separate passages.
 
-    If no highlight is detected on the page, return an empty highlights array.
+    If no highlight is detected on any page, return an empty highlights array.
     """
 
     private let apiKey: String
@@ -58,17 +71,20 @@ public actor GeminiClient {
         self.baseURL = baseURL
     }
 
-    public func extractHighlight(
-        from imageData: Data,
+    public func extractHighlights(
+        fromImages images: [Data],
         mimeType: String = "image/jpeg",
         prompt: String = GeminiClient.defaultPrompt
     ) async throws -> ExtractionResult {
+        guard !images.isEmpty else {
+            return ExtractionResult(highlights: [])
+        }
         let url = baseURL.appendingPathComponent("models/\(model):generateContent")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-        request.httpBody = try Self.makeBody(imageData: imageData, mimeType: mimeType, prompt: prompt)
+        request.httpBody = try Self.makeBody(images: images, mimeType: mimeType, prompt: prompt)
 
         let (data, response) = try await http.data(for: request)
         guard let resp = response as? HTTPURLResponse else {
@@ -84,17 +100,17 @@ public actor GeminiClient {
         return try Self.parseResponse(data)
     }
 
-    public static func makeBody(imageData: Data, mimeType: String, prompt: String) throws -> Data {
+    public static func makeBody(images: [Data], mimeType: String, prompt: String) throws -> Data {
+        var parts: [[String: Any]] = images.map { data in
+            ["inline_data": [
+                "mime_type": mimeType,
+                "data": data.base64EncodedString()
+            ]]
+        }
+        parts.append(["text": prompt])
+
         let body: [String: Any] = [
-            "contents": [[
-                "parts": [
-                    ["inline_data": [
-                        "mime_type": mimeType,
-                        "data": imageData.base64EncodedString()
-                    ]],
-                    ["text": prompt]
-                ]
-            ]],
+            "contents": [["parts": parts]],
             "generationConfig": [
                 "responseMimeType": "application/json",
                 "responseSchema": [

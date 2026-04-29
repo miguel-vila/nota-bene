@@ -130,7 +130,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 - Google's original `GoogleGenerativeAI` package (`github.com/google-gemini/generative-ai-swift`) is **deprecated** and frozen — Google explicitly states no further changes will be made to it.
 - Google's currently-supported path is the **Firebase AI Logic SDK** (`FirebaseAILogic` library, part of `firebase-ios-sdk`). It does **not** fit this app's design: it requires a Firebase project and routes calls through Firebase rather than accepting a user-supplied raw Gemini API key. Since the whole point of this app is "user pastes their own Gemini API key," this SDK is not usable.
 - Community alternative: `paradigms-of-intelligence/swift-gemini-api` accepts a raw API key but is small, single-maintainer, and not battle-tested.
-- **Recommendation: skip the SDKs and call the Gemini REST endpoint directly via URLSession.** The app makes exactly one kind of call (multimodal + structured JSON output). A direct REST client is ~50 lines of Swift, has zero dependency risk, and will not be invalidated by future Google SDK reorganizations. Wrap it in a `GeminiClient` actor with one method: `extractHighlight(from imageData: Data) async throws -> ExtractionResult`.
+- **Recommendation: skip the SDKs and call the Gemini REST endpoint directly via URLSession.** The app makes exactly one kind of call (multimodal + structured JSON output). A direct REST client is ~50 lines of Swift, has zero dependency risk, and will not be invalidated by future Google SDK reorganizations. Wrap it in a `GeminiClient` actor with one method: `extractHighlights(fromImages: [Data]) async throws -> ExtractionResult`.
 
 ### Readwise
 

@@ -109,7 +109,7 @@ public struct SettingsView: View {
             0x45,0x4E,0x44,0xAE,0x42,0x60,0x82
         ])
         do {
-            _ = try await client.extractHighlight(from: pixel, mimeType: "image/png")
+            _ = try await client.extractHighlights(fromImages: [pixel], mimeType: "image/png")
             setStatus("Gemini key works.", isError: false)
         } catch GeminiError.invalidKey {
             setStatus("Gemini key rejected.", isError: true)

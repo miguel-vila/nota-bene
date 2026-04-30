@@ -55,7 +55,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
   - Return only the marked passages, not the surrounding unmarked text.
   - Preserve original line wrapping as spaces (no hyphenation artifacts).
   - Return `null` for `page_number` if no page number is visible or unambiguous.
-  - When multiple page images are provided, treat them as consecutive pages and merge any passage that continues across the page break into a single entry.
+- The prompt adapts to the number of pages in the capture: single-page captures get a leaner prompt with no cross-page wording, while multi-page captures get an extended version that tells the model to treat the images as consecutive pages and merge any passage that continues across the page break into a single entry.
 - A loading indicator is shown while the request is in flight.
 - Failures (network, invalid key, model error) show an error with a Retry action and a "Skip extraction, type manually" action that takes the user to Review with empty fields.
 

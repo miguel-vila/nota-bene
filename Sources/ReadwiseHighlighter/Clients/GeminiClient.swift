@@ -15,14 +15,22 @@ public actor GeminiClient {
 
     private static let notesGuidance = """
     The reader may have scribbled handwritten notes in the page margins or
-    between lines (separate from the highlighted passage itself — typically
-    cursive or print handwriting in pen or pencil, not part of the printed
-    text). For each highlight, attach the handwritten note that is physically
-    closest to it (same line, adjacent margin, or directly above/below) as the
-    note field. If a note is not clearly associated with any single highlight,
-    skip it. If a highlight has no nearby handwritten note, set note to null.
+    between lines. Notes are HANDWRITTEN by the reader — cursive or block
+    lettering, ink or graphite from a pen or pencil, with shaky or uneven
+    strokes and a wandering baseline. They are visually distinct from the
+    book's printed/typeset text. Do NOT confuse a handwritten note with the
+    highlighted text itself: the highlighted text is part of the printed book
+    body (just with a hand-applied mark over or around it), while the note
+    is separate writing the reader added on top of the page. The text of a
+    note must NEVER include any printed body text — only the handwriting.
+
+    For each highlight, attach the handwritten note that is physically closest
+    to it (same line, adjacent margin, or directly above/below) as the note
+    field. If a note is not clearly associated with any single highlight, skip
+    it. If a highlight has no nearby handwritten note, set note to null.
     Transcribe notes verbatim; if a note is illegible, use note: null rather
-    than guessing. Printed text (footnotes, captions, headings) is NEVER a note.
+    than guessing. Printed text (footnotes, captions, headings, page numbers)
+    is NEVER a note.
     """
 
     private static let singlePagePrompt = """
@@ -45,6 +53,10 @@ public actor GeminiClient {
 
     For each passage:
     - Include only the marked text. Do not include surrounding unmarked text.
+      Even if the marked region begins or ends mid-sentence, mid-clause, or
+      mid-word, return exactly what is marked — do NOT extend the passage to
+      complete a sentence, clause, thought, or word. If the reader chose to
+      highlight a fragment, the fragment is the answer.
     - Preserve original punctuation verbatim. Do not add quotation marks or emphasis
       markers (e.g. asterisks, underscores) for printed italics or bold.
     - Treat line wraps as single spaces — do not include hyphenation artifacts.
@@ -92,6 +104,11 @@ public actor GeminiClient {
 
     For each passage:
     - Include only the marked text. Do not include surrounding unmarked text.
+      Even if the marked region begins or ends mid-sentence, mid-clause, or
+      mid-word, return exactly what is marked — do NOT extend the passage to
+      complete a sentence, clause, thought, or word. If the reader chose to
+      highlight a fragment, the fragment is the answer. (The exception is
+      stitching a passage that wraps the page break, as described above.)
     - Preserve original punctuation verbatim. Do not add quotation marks or emphasis
       markers (e.g. asterisks, underscores) for printed italics or bold.
     - Treat line wraps as single spaces — do not include hyphenation artifacts.

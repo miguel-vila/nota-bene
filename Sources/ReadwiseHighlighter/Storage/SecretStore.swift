@@ -11,6 +11,10 @@ public enum SecretKey {
     public static let readwise = "readwise_highlighter.readwise_key"
 }
 
+public enum PreferenceKey {
+    public static let geminiModel = "readwise_highlighter.gemini_model"
+}
+
 public final class InMemorySecretStore: SecretStore, @unchecked Sendable {
     private var values: [String: String] = [:]
     private let lock = NSLock()

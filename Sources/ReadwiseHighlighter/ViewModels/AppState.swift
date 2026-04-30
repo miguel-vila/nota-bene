@@ -12,22 +12,34 @@ public final class AppState: ObservableObject {
     @Published public var phase: Phase = .setup
     @Published public var geminiKeyMasked: String = ""
     @Published public var readwiseKeyMasked: String = ""
+    @Published public var geminiModel: String {
+        didSet { defaults.set(geminiModel, forKey: PreferenceKey.geminiModel) }
+    }
 
     public let secretStore: SecretStore
     public private(set) var bookStore: BookStore
     public let openLibrary: OpenLibraryClient
+    private let defaults: UserDefaults
 
     public var libraryRefreshIntervalHours: Double = 12
 
     public init(
         secretStore: SecretStore,
         bookStore: BookStore,
-        openLibrary: OpenLibraryClient = OpenLibraryClient()
+        openLibrary: OpenLibraryClient = OpenLibraryClient(),
+        defaults: UserDefaults = .standard
     ) {
         self.secretStore = secretStore
         self.bookStore = bookStore
         self.openLibrary = openLibrary
+        self.defaults = defaults
+        let storedModel = defaults.string(forKey: PreferenceKey.geminiModel)
+        self.geminiModel = (storedModel?.isEmpty == false ? storedModel! : GeminiClient.defaultModel)
         refreshKeyState()
+    }
+
+    public func resetGeminiModelToDefault() {
+        geminiModel = GeminiClient.defaultModel
     }
 
     public func refreshKeyState() {
@@ -60,7 +72,7 @@ public final class AppState: ObservableObject {
         guard let key = (try? secretStore.read(SecretKey.gemini)) ?? nil, !key.isEmpty else {
             return nil
         }
-        return GeminiClient(apiKey: key)
+        return GeminiClient(apiKey: key, model: geminiModel)
     }
 
     public func currentReadwiseClient() -> ReadwiseClient? {

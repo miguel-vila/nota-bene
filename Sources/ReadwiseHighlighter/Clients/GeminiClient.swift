@@ -9,6 +9,22 @@ public enum GeminiError: Error, Equatable {
 
 public actor GeminiClient {
     public static let defaultModel = "gemini-2.5-flash"
+
+    public enum ModelPreset: String, CaseIterable, Identifiable, Sendable {
+        case flash = "gemini-2.5-flash"
+        case pro = "gemini-2.5-pro"
+        case flashLite = "gemini-2.5-flash-lite"
+
+        public var id: String { rawValue }
+
+        public var label: String {
+            switch self {
+            case .flash: return "2.5 Flash — fast, recommended default"
+            case .pro: return "2.5 Pro — most accurate, slower and pricier"
+            case .flashLite: return "2.5 Flash Lite — cheapest, smaller"
+            }
+        }
+    }
     public static func defaultPrompt(forPageCount count: Int) -> String {
         count > 1 ? multiPagePrompt : singlePagePrompt
     }

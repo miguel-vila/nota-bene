@@ -15,6 +15,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 - Settings includes a "Test connection" action for each key:
   - Gemini: a minimal text-only request.
   - Readwise: `GET /api/v2/auth/`.
+- Settings also lets the user pick which Gemini model to use. A short list of recommended presets (Flash, Pro, Flash Lite) covers the common cases, and a "Custom…" option allows entering an arbitrary model name for advanced users. The selection is persisted across launches and applied to all subsequent extractions; a "Reset to default" action restores the recommended default.
 
 ## Main flow
 

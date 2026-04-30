@@ -6,6 +6,7 @@ public struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var geminiInput = ""
     @State private var readwiseInput = ""
+    @State private var customModelInput = ""
     @State private var statusMessage: String?
     @State private var statusIsError: Bool = false
     @State private var testing: Bool = false
@@ -36,6 +37,34 @@ public struct SettingsView: View {
                     Button("Clear", role: .destructive) {
                         try? state.clearGeminiKey()
                     }
+                }
+
+                Section("Gemini model") {
+                    Picker("Model", selection: modelSelection) {
+                        ForEach(GeminiClient.ModelPreset.allCases) { preset in
+                            Text(preset.label).tag(Optional(preset))
+                        }
+                        Text("Custom…").tag(Optional<GeminiClient.ModelPreset>.none)
+                    }
+                    if currentPreset == nil {
+                        TextField("Model name", text: $customModelInput)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .onSubmit { commitCustomModel() }
+                        Button("Use this model") { commitCustomModel() }
+                            .disabled(customModelInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    HStack {
+                        Text("Active").foregroundStyle(.secondary)
+                        Spacer()
+                        Text(state.geminiModel)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    Button("Reset to default") {
+                        state.resetGeminiModelToDefault()
+                        customModelInput = ""
+                    }
+                    .disabled(state.geminiModel == GeminiClient.defaultModel)
                 }
 
                 Section("Readwise") {
@@ -75,6 +104,30 @@ public struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var currentPreset: GeminiClient.ModelPreset? {
+        GeminiClient.ModelPreset(rawValue: state.geminiModel)
+    }
+
+    private var modelSelection: Binding<GeminiClient.ModelPreset?> {
+        Binding(
+            get: { currentPreset },
+            set: { newValue in
+                if let preset = newValue {
+                    state.geminiModel = preset.rawValue
+                    customModelInput = ""
+                } else {
+                    customModelInput = state.geminiModel
+                }
+            }
+        )
+    }
+
+    private func commitCustomModel() {
+        let trimmed = customModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        state.geminiModel = trimmed
     }
 
     private enum Target { case gemini, readwise }

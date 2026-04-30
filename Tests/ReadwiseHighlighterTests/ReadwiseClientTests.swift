@@ -22,6 +22,35 @@ final class ReadwiseClientTests: XCTestCase {
         XCTAssertEqual(h["location_type"] as? String, "page")
     }
 
+    func test_makeBody_includesNoteWhenSet() throws {
+        let input = ReadwiseClient.HighlightInput(
+            text: "passage",
+            title: "Dune",
+            author: "Herbert",
+            pageNumber: 99,
+            note: "important callback to ch.1"
+        )
+        let data = try ReadwiseClient.makeBody(input)
+        let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let highlights = try XCTUnwrap(json["highlights"] as? [[String: Any]])
+        XCTAssertEqual(highlights.first?["note"] as? String, "important callback to ch.1")
+    }
+
+    func test_makeBody_omitsNoteWhenEmptyOrNil() throws {
+        let nilNote = ReadwiseClient.HighlightInput(
+            text: "p", title: "B", author: nil, pageNumber: nil, note: nil
+        )
+        let emptyNote = ReadwiseClient.HighlightInput(
+            text: "p", title: "B", author: nil, pageNumber: nil, note: ""
+        )
+        for input in [nilNote, emptyNote] {
+            let data = try ReadwiseClient.makeBody(input)
+            let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            let highlights = try XCTUnwrap(json["highlights"] as? [[String: Any]])
+            XCTAssertNil(highlights.first?["note"])
+        }
+    }
+
     func test_makeBody_omitsPageWhenNil() throws {
         let input = ReadwiseClient.HighlightInput(
             text: "passage",

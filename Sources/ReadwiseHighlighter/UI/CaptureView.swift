@@ -71,7 +71,8 @@ public struct CaptureFlowContainer: View {
                 text: $0.trimmedText,
                 title: flow.book.title,
                 author: flow.book.author,
-                pageNumber: $0.parsedPageNumber()
+                pageNumber: $0.parsedPageNumber(),
+                note: $0.noteForSubmission
             )
         }
         guard !inputs.isEmpty else { return }

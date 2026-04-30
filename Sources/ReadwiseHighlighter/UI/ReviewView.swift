@@ -31,6 +31,13 @@ struct ReviewView: View {
                         .frame(minHeight: 120)
                     TextField("Page number (optional)", text: $highlight.pageNumberInput)
                         .keyboardType(.numberPad)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Note")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        TextEditor(text: $highlight.note)
+                            .frame(minHeight: 60)
+                    }
                     if flow.highlights.count > 1 {
                         Button(role: .destructive) {
                             flow.removeHighlight(id: highlight.id)

@@ -4,10 +4,19 @@ import XCTest
 final class GeminiClientTests: XCTestCase {
     func test_defaultPrompt_singlePageOmitsCrossPageWording() {
         let prompt = GeminiClient.defaultPrompt(forPageCount: 1).lowercased()
-        XCTAssertFalse(prompt.contains("merge"),
+        XCTAssertFalse(prompt.contains("merge it into a single highlights"),
                        "single-page prompt should not mention cross-page merging")
         XCTAssertFalse(prompt.contains("consecutive"),
                        "single-page prompt should not mention consecutive pages")
+    }
+
+    func test_defaultPrompt_mentionsHandwrittenNotes() {
+        let single = GeminiClient.defaultPrompt(forPageCount: 1).lowercased()
+        let multi = GeminiClient.defaultPrompt(forPageCount: 2).lowercased()
+        XCTAssertTrue(single.contains("handwritten"),
+                      "single-page prompt should describe handwritten notes")
+        XCTAssertTrue(multi.contains("handwritten"),
+                      "multi-page prompt should describe handwritten notes")
     }
 
     func test_defaultPrompt_multiPageMentionsCrossPageMerging() {
@@ -44,6 +53,22 @@ final class GeminiClientTests: XCTestCase {
         let itemProps = try XCTUnwrap(items["properties"] as? [String: Any])
         XCTAssertNotNil(itemProps["text"])
         XCTAssertNotNil(itemProps["page_number"])
+        XCTAssertNotNil(itemProps["note"])
+    }
+
+    func test_parseResponse_extractsNoteField() throws {
+        let envelope = """
+        {
+          "candidates": [{
+            "content": {
+              "parts": [{"text": "{\\"highlights\\": [{\\"text\\": \\"a quote\\", \\"page_number\\": 7, \\"note\\": \\"hmm interesting\\"}]}"}]
+            }
+          }]
+        }
+        """.data(using: .utf8)!
+        let result = try GeminiClient.parseResponse(envelope)
+        XCTAssertEqual(result.highlights.count, 1)
+        XCTAssertEqual(result.highlights[0].note, "hmm interesting")
     }
 
     func test_makeBody_multipleImagesAreOrderedBeforePrompt() throws {

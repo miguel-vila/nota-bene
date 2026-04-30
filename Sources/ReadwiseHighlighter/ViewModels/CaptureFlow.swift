@@ -16,11 +16,18 @@ public final class CaptureFlow: ObservableObject {
         public let id: UUID
         public var text: String
         public var pageNumberInput: String
+        public var note: String
 
-        public init(id: UUID = UUID(), text: String = "", pageNumberInput: String = "") {
+        public init(
+            id: UUID = UUID(),
+            text: String = "",
+            pageNumberInput: String = "",
+            note: String = ""
+        ) {
             self.id = id
             self.text = text
             self.pageNumberInput = pageNumberInput
+            self.note = note
         }
 
         public func parsedPageNumber() -> Int? {
@@ -31,6 +38,15 @@ public final class CaptureFlow: ObservableObject {
 
         public var trimmedText: String {
             text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        public var trimmedNote: String {
+            note.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        public var noteForSubmission: String? {
+            let trimmed = trimmedNote
+            return trimmed.isEmpty ? nil : trimmed
         }
     }
 
@@ -89,7 +105,8 @@ public final class CaptureFlow: ObservableObject {
         let mapped = result.highlights.map {
             EditableHighlight(
                 text: $0.text,
-                pageNumberInput: $0.pageNumber.map(String.init) ?? ""
+                pageNumberInput: $0.pageNumber.map(String.init) ?? "",
+                note: $0.note ?? ""
             )
         }
         if mapped.isEmpty {

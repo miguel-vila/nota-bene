@@ -13,6 +13,18 @@ public actor GeminiClient {
         count > 1 ? multiPagePrompt : singlePagePrompt
     }
 
+    private static let notesGuidance = """
+    The reader may have scribbled handwritten notes in the page margins or
+    between lines (separate from the highlighted passage itself — typically
+    cursive or print handwriting in pen or pencil, not part of the printed
+    text). For each highlight, attach the handwritten note that is physically
+    closest to it (same line, adjacent margin, or directly above/below) as the
+    note field. If a note is not clearly associated with any single highlight,
+    skip it. If a highlight has no nearby handwritten note, set note to null.
+    Transcribe notes verbatim; if a note is illegible, use note: null rather
+    than guessing. Printed text (footnotes, captions, headings) is NEVER a note.
+    """
+
     private static let singlePagePrompt = """
     You are extracting highlighted passages from a photograph of a book page.
 
@@ -29,6 +41,8 @@ public actor GeminiClient {
     bracket, or an underline drawn by hand (often slightly crooked or extending
     beyond the text baseline). When in doubt, treat the text as unmarked.
 
+    \(notesGuidance)
+
     For each passage:
     - Include only the marked text. Do not include surrounding unmarked text.
     - Preserve original punctuation verbatim. Do not add quotation marks or emphasis
@@ -36,6 +50,7 @@ public actor GeminiClient {
     - Treat line wraps as single spaces — do not include hyphenation artifacts.
     - If a page number is clearly visible and unambiguous, return it as an integer
       in page_number. Otherwise return null.
+    - Attach the closest handwritten margin note as the note field, or null.
 
     If two marks are clearly part of the same continuous sentence or paragraph,
     treat them as a single passage. If they are separated by unmarked text or are
@@ -73,6 +88,8 @@ public actor GeminiClient {
     bracket, or an underline drawn by hand (often slightly crooked or extending
     beyond the text baseline). When in doubt, treat the text as unmarked.
 
+    \(notesGuidance)
+
     For each passage:
     - Include only the marked text. Do not include surrounding unmarked text.
     - Preserve original punctuation verbatim. Do not add quotation marks or emphasis
@@ -81,6 +98,8 @@ public actor GeminiClient {
     - If a page number is clearly visible and unambiguous, return it as an integer
       in page_number. Otherwise return null. The same page_number can repeat across
       passages on the same page.
+    - Attach the closest handwritten margin note (on the same page as the
+      highlight) as the note field, or null.
 
     If two marks on the same page are clearly part of the same continuous sentence
     or paragraph, treat them as a single passage. If they are separated by unmarked
@@ -158,7 +177,8 @@ public actor GeminiClient {
                                 "type": "object",
                                 "properties": [
                                     "text": ["type": "string"],
-                                    "page_number": ["type": "integer", "nullable": true]
+                                    "page_number": ["type": "integer", "nullable": true],
+                                    "note": ["type": "string", "nullable": true]
                                 ],
                                 "required": ["text"]
                             ]
@@ -203,7 +223,11 @@ public actor GeminiClient {
             if let rawHighlights = json["highlights"] as? [[String: Any]] {
                 let highlights = rawHighlights.compactMap { item -> ExtractionResult.Highlight? in
                     guard let text = item["text"] as? String else { return nil }
-                    return ExtractionResult.Highlight(text: text, pageNumber: item["page_number"] as? Int)
+                    return ExtractionResult.Highlight(
+                        text: text,
+                        pageNumber: item["page_number"] as? Int,
+                        note: item["note"] as? String
+                    )
                 }
                 return ExtractionResult(highlights: highlights)
             }

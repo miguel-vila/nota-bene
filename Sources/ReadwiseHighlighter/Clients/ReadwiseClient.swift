@@ -11,6 +11,7 @@ public actor ReadwiseClient {
         public let title: String
         public let author: String?
         public let pageNumber: Int?
+        public let note: String?
         public let sourceType: String
         public let category: String
 
@@ -19,6 +20,7 @@ public actor ReadwiseClient {
             title: String,
             author: String?,
             pageNumber: Int?,
+            note: String? = nil,
             sourceType: String = "physical_book_capture",
             category: String = "books"
         ) {
@@ -26,6 +28,7 @@ public actor ReadwiseClient {
             self.title = title
             self.author = author
             self.pageNumber = pageNumber
+            self.note = note
             self.sourceType = sourceType
             self.category = category
         }
@@ -163,6 +166,9 @@ public actor ReadwiseClient {
             if let page = input.pageNumber {
                 highlight["location"] = page
                 highlight["location_type"] = "page"
+            }
+            if let note = input.note, !note.isEmpty {
+                highlight["note"] = note
             }
             return highlight
         }

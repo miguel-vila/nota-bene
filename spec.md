@@ -50,6 +50,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 - The request uses structured output (JSON schema) and returns an array of highlights, each with:
   - `text` (string): the text marked with highlighter, pen, pencil, bracket, or underline. Verbatim, preserving punctuation.
   - `page_number` (integer | null): the page number visible in the photo, if any.
+  - `note` (string | null): a handwritten margin/inline note physically closest to this highlight, if any. Notes that aren't clearly attached to a single highlight are skipped; illegible notes are returned as `null` rather than guessed.
 - A single photo may contain multiple distinct highlighted passages — the model returns each as a separate entry in reading order. An empty array means no highlight was detected.
 - The prompt instructs the model to:
   - Return only the marked passages, not the surrounding unmarked text.
@@ -64,6 +65,7 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 - One editable group per detected highlight, each with:
   - **Text** (multiline): pre-filled, editable.
   - **Page number** (numeric): pre-filled if detected, editable.
+  - **Note** (multiline): pre-filled with the closest detected handwritten note, editable. Empty if the model didn't attach a note to this highlight; the user can still type one in manually.
 - Users can remove individual highlights or add a blank one to type manually.
 - The selected book is shown above the highlights. Tapping it returns to book selection (preserving the captured photo and extracted highlights in memory).
 - Primary action: **Save**. Disabled if no highlight has any text. All non-empty highlights are submitted together.
@@ -83,7 +85,8 @@ A native iPhone app that turns highlighted passages in physical books into Readw
         "source_type": "physical_book_capture",
         "category": "books",
         "location": <page number, if provided>,
-        "location_type": "page"
+        "location_type": "page",
+        "note": "<edited note, if provided>"
       }
     ]
   }

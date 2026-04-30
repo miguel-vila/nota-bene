@@ -9,13 +9,48 @@ public enum GeminiError: Error, Equatable {
 
 public actor GeminiClient {
     public static let defaultModel = "gemini-2.5-flash"
-    public static let defaultPrompt = """
-    You are extracting highlighted passages from one or more photographs of
-    consecutive book pages.
+    public static func defaultPrompt(forPageCount count: Int) -> String {
+        count > 1 ? multiPagePrompt : singlePagePrompt
+    }
+
+    private static let singlePagePrompt = """
+    You are extracting highlighted passages from a photograph of a book page.
+
+    The page may contain zero, one, or multiple distinct passages physically marked
+    by the reader with highlighter, pen, pencil, brackets, or underline. Return
+    every distinct passage you find as a separate entry in the highlights array,
+    in reading order (top to bottom, then left to right).
+
+    Only return passages that show a hand-applied mark. Ignore typographic emphasis
+    that is part of the printed book itself — italics, bold, small caps, drop caps,
+    pull quotes, chapter epigraphs, captions, and headings are NOT highlights unless
+    the reader has additionally marked them by hand. A hand-applied mark looks like
+    an irregular ink/graphite stroke, a translucent highlighter overlay, a margin
+    bracket, or an underline drawn by hand (often slightly crooked or extending
+    beyond the text baseline). When in doubt, treat the text as unmarked.
+
+    For each passage:
+    - Include only the marked text. Do not include surrounding unmarked text.
+    - Preserve original punctuation verbatim. Do not add quotation marks or emphasis
+      markers (e.g. asterisks, underscores) for printed italics or bold.
+    - Treat line wraps as single spaces — do not include hyphenation artifacts.
+    - If a page number is clearly visible and unambiguous, return it as an integer
+      in page_number. Otherwise return null.
+
+    If two marks are clearly part of the same continuous sentence or paragraph,
+    treat them as a single passage. If they are separated by unmarked text or are
+    on different lines/paragraphs, treat them as separate passages.
+
+    If no highlight is detected, return an empty highlights array.
+    """
+
+    private static let multiPagePrompt = """
+    You are extracting highlighted passages from photographs of consecutive book
+    pages.
 
     The images are provided in reading order: the first image is the first page,
-    the second image (if present) is the page that immediately follows it, and so
-    on. Process them in that order.
+    and each subsequent image is the page that immediately follows. Process them
+    in that order.
 
     A page may contain zero, one, or multiple distinct passages physically marked
     by the reader with highlighter, pen, pencil, brackets, or underline. Return
@@ -23,12 +58,12 @@ public actor GeminiClient {
     in reading order across all pages (top to bottom, then left to right, then
     next page).
 
-    If a single highlighted passage continues from the bottom of one page to the
-    top of the next page, merge it into a single highlights entry — do not return
-    two separate entries. Stitch the text across the page break naturally
-    (collapse the page boundary into a single space, and resolve any hyphenation
-    at the seam by joining the word parts without a hyphen). Set page_number to
-    the page where the passage begins.
+    A single highlighted passage may continue from the bottom of one page to the
+    top of the next page. When this happens, merge it into a single highlights
+    entry — do not return two separate entries. Stitch the text across the page
+    break naturally (collapse the page boundary into a single space, and resolve
+    any hyphenation at the seam by joining the word parts without a hyphen). Set
+    page_number to the page where the passage begins.
 
     Only return passages that show a hand-applied mark. Ignore typographic emphasis
     that is part of the printed book itself — italics, bold, small caps, drop caps,
@@ -74,17 +109,18 @@ public actor GeminiClient {
     public func extractHighlights(
         fromImages images: [Data],
         mimeType: String = "image/jpeg",
-        prompt: String = GeminiClient.defaultPrompt
+        prompt: String? = nil
     ) async throws -> ExtractionResult {
         guard !images.isEmpty else {
             return ExtractionResult(highlights: [])
         }
+        let resolvedPrompt = prompt ?? Self.defaultPrompt(forPageCount: images.count)
         let url = baseURL.appendingPathComponent("models/\(model):generateContent")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-        request.httpBody = try Self.makeBody(images: images, mimeType: mimeType, prompt: prompt)
+        request.httpBody = try Self.makeBody(images: images, mimeType: mimeType, prompt: resolvedPrompt)
 
         let (data, response) = try await http.data(for: request)
         guard let resp = response as? HTTPURLResponse else {

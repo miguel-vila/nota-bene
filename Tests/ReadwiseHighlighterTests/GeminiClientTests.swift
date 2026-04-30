@@ -2,6 +2,22 @@ import XCTest
 @testable import ReadwiseHighlighter
 
 final class GeminiClientTests: XCTestCase {
+    func test_defaultPrompt_singlePageOmitsCrossPageWording() {
+        let prompt = GeminiClient.defaultPrompt(forPageCount: 1).lowercased()
+        XCTAssertFalse(prompt.contains("merge"),
+                       "single-page prompt should not mention cross-page merging")
+        XCTAssertFalse(prompt.contains("consecutive"),
+                       "single-page prompt should not mention consecutive pages")
+    }
+
+    func test_defaultPrompt_multiPageMentionsCrossPageMerging() {
+        let prompt = GeminiClient.defaultPrompt(forPageCount: 2).lowercased()
+        XCTAssertTrue(prompt.contains("merge"),
+                      "multi-page prompt should describe cross-page merging")
+        XCTAssertTrue(prompt.contains("consecutive"),
+                      "multi-page prompt should describe consecutive pages")
+    }
+
     func test_makeBody_singleImageIncludesInlineDataAndArraySchema() throws {
         let body = try GeminiClient.makeBody(
             images: [Data([0x01, 0x02, 0x03])],

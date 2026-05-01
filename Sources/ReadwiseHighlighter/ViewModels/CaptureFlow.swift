@@ -120,13 +120,15 @@ public final class CaptureFlow: ObservableObject {
     }
 
     public func applyExtraction(_ result: ExtractionResult) {
-        let mapped = result.highlights.map {
-            EditableHighlight(
-                text: $0.text,
-                pageNumberInput: $0.pageNumber.map(String.init) ?? "",
-                note: $0.note ?? ""
-            )
-        }
+        let mapped = result.highlights
+            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .map {
+                EditableHighlight(
+                    text: $0.text,
+                    pageNumberInput: $0.pageNumber.map(String.init) ?? "",
+                    note: $0.note ?? ""
+                )
+            }
         if mapped.isEmpty {
             highlights = [EditableHighlight()]
             didDetectEmptyHighlight = true

@@ -8,6 +8,7 @@ public final class CaptureFlow: ObservableObject {
         case capture
         case preview
         case extracting
+        case extractionFailed
         case review
         case submitting
     }
@@ -99,6 +100,23 @@ public final class CaptureFlow: ObservableObject {
         guard !images.isEmpty else { return }
         stage = .extracting
         lastError = nil
+    }
+
+    public func failExtraction(_ message: String) {
+        lastError = message
+        stage = .extractionFailed
+    }
+
+    public func retryExtraction() {
+        guard !images.isEmpty else { return }
+        lastError = nil
+        stage = .extracting
+    }
+
+    public func backToPreview() {
+        guard !images.isEmpty else { return }
+        lastError = nil
+        stage = .preview
     }
 
     public func applyExtraction(_ result: ExtractionResult) {

@@ -21,6 +21,13 @@ public struct CaptureFlowContainer: View {
             case .extracting:
                 ExtractingScreen(flow: flow)
                     .task { await runExtraction() }
+            case .extractionFailed:
+                ExtractionFailedScreen(
+                    flow: flow,
+                    onRetry: { flow.retryExtraction() },
+                    onTypeManually: { flow.skipExtraction() },
+                    onBack: { flow.backToPreview() }
+                )
             case .review, .submitting:
                 ReviewView(flow: flow) {
                     await submit()
@@ -46,19 +53,16 @@ public struct CaptureFlowContainer: View {
         }
         let providerLabel = state.provider.label
         guard let extractor = state.currentExtractor() else {
-            flow.lastError = "\(providerLabel) key missing — open Settings."
-            flow.skipExtraction()
+            flow.failExtraction("\(providerLabel) key missing — open Settings.")
             return
         }
         do {
             let result = try await extractor.extractHighlights(fromImages: flow.images, mimeType: "image/jpeg")
             flow.applyExtraction(result)
         } catch ExtractionError.invalidKey {
-            flow.lastError = "\(providerLabel) key rejected — update it in Settings."
-            flow.skipExtraction()
+            flow.failExtraction("\(providerLabel) key rejected — update it in Settings.")
         } catch {
-            flow.lastError = "Extraction failed: \(error.localizedDescription)"
-            flow.skipExtraction()
+            flow.failExtraction("Extraction failed: \(error.localizedDescription)")
         }
     }
 
@@ -232,6 +236,55 @@ private struct ExtractingScreen: View {
             Text("Extracting highlight…").foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct ExtractionFailedScreen: View {
+    @ObservedObject var flow: CaptureFlow
+    var onRetry: () -> Void
+    var onTypeManually: () -> Void
+    var onBack: () -> Void
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(.orange)
+            Text("Extraction failed")
+                .font(.title3.weight(.semibold))
+            if let message = flow.lastError {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            Spacer()
+            VStack(spacing: 12) {
+                Button(action: onRetry) {
+                    Label("Try again", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+
+                Button(action: onTypeManually) {
+                    Text("Type manually")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+
+                Button("Back to photo", action: onBack)
+                    .buttonStyle(.borderless)
+            }
+            .padding(.horizontal, 32)
+            .padding(.bottom, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .navigationTitle(flow.book.title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 #endif

@@ -75,7 +75,11 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
   - Return `null` for `page_number` if no page number is visible or unambiguous.
 - The prompt adapts to the number of pages in the capture: single-page captures get a leaner prompt with no cross-page wording, while multi-page captures get an extended version that tells the model to treat the images as consecutive pages and merge any passage that continues across the page break into a single entry.
 - A loading indicator is shown while the request is in flight.
-- Failures (network, invalid key, model error) show an error with a Retry action and a "Skip extraction, type manually" action that takes the user to Review with empty fields.
+- Failures (network, invalid key, model error) land on a dedicated extraction-failed screen — **not** on Review. The screen shows the error message and four actions, in priority order:
+  - **Try again** (primary): re-runs extraction against the same captured images, no re-shoot needed.
+  - **Type manually**: skips extraction and goes to Review with a single empty highlight (the historical "skip" behavior).
+  - **Back to photo**: returns to the Preview screen so the user can retake or turn the page.
+  - **Back to books**: dismisses the capture flow entirely and returns to the Book selection screen (the main menu).
 
 ### 4. Review
 

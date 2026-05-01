@@ -26,7 +26,8 @@ public struct CaptureFlowContainer: View {
                     flow: flow,
                     onRetry: { flow.retryExtraction() },
                     onTypeManually: { flow.skipExtraction() },
-                    onBack: { flow.backToPreview() }
+                    onBackToPhoto: { flow.backToPreview() },
+                    onBackToBooks: { dismiss() }
                 )
             case .review, .submitting:
                 ReviewView(flow: flow) {
@@ -243,7 +244,8 @@ private struct ExtractionFailedScreen: View {
     @ObservedObject var flow: CaptureFlow
     var onRetry: () -> Void
     var onTypeManually: () -> Void
-    var onBack: () -> Void
+    var onBackToPhoto: () -> Void
+    var onBackToBooks: () -> Void
 
     var body: some View {
         VStack(spacing: 20) {
@@ -276,8 +278,12 @@ private struct ExtractionFailedScreen: View {
                 .buttonStyle(.bordered)
                 .controlSize(.large)
 
-                Button("Back to photo", action: onBack)
-                    .buttonStyle(.borderless)
+                HStack(spacing: 24) {
+                    Button("Back to photo", action: onBackToPhoto)
+                    Button("Back to books", action: onBackToBooks)
+                }
+                .buttonStyle(.borderless)
+                .font(.footnote)
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 24)

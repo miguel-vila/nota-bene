@@ -5,6 +5,18 @@ public enum ExtractionPrompts {
         count > 1 ? multiPagePrompt : singlePagePrompt
     }
 
+    public static let framingGuidance = """
+    Each photograph is framed on a single page (the subject page), which occupies
+    the center of the image. The edges of the photo may incidentally include
+    fragments of an adjacent page — a sliver of the facing page, a strip of the
+    next page underneath, or text running off the top/bottom/side of the frame.
+    Only extract highlights that belong to the subject page. Ignore any marked
+    text that sits at the extreme margin of the photo and is clearly cut off,
+    partially visible, or belongs to a different page than the one centered in
+    the frame. If you cannot see the full marked passage because it runs off the
+    edge of the photo, do not return it.
+    """
+
     public static let notesGuidance = """
     The reader may have scribbled handwritten notes in the page margins or
     between lines. Notes are HANDWRITTEN by the reader — cursive or block
@@ -40,6 +52,8 @@ public enum ExtractionPrompts {
     an irregular ink/graphite stroke, a translucent highlighter overlay, a margin
     bracket, or an underline drawn by hand (often slightly crooked or extending
     beyond the text baseline). When in doubt, treat the text as unmarked.
+
+    \(framingGuidance)
 
     \(notesGuidance)
 
@@ -91,6 +105,8 @@ public enum ExtractionPrompts {
     an irregular ink/graphite stroke, a translucent highlighter overlay, a margin
     bracket, or an underline drawn by hand (often slightly crooked or extending
     beyond the text baseline). When in doubt, treat the text as unmarked.
+
+    \(framingGuidance)
 
     \(notesGuidance)
 

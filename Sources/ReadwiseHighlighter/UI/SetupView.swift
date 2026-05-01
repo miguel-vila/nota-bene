@@ -3,7 +3,7 @@ import SwiftUI
 
 public struct SetupView: View {
     @EnvironmentObject private var state: AppState
-    @State private var geminiKey = ""
+    @State private var providerKey = ""
     @State private var readwiseKey = ""
     @State private var error: String?
 
@@ -13,12 +13,20 @@ public struct SetupView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text("Paste your API keys to get started. They are stored in the iOS Keychain on this device.")
+                    Text("Pick a model provider, then paste your API keys to get started. They are stored in the iOS Keychain on this device.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
-                Section("Gemini API key") {
-                    SecureField("AIza...", text: $geminiKey)
+                Section("Model provider") {
+                    Picker("Provider", selection: $state.provider) {
+                        ForEach(LLMProvider.allCases) { provider in
+                            Text(provider.label).tag(provider)
+                        }
+                    }
+                    .onChange(of: state.provider) { _, _ in providerKey = "" }
+                }
+                Section("\(state.provider.label) API key") {
+                    SecureField(placeholder, text: $providerKey)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
@@ -34,16 +42,23 @@ public struct SetupView: View {
                 }
                 Section {
                     Button("Save & continue") { save() }
-                        .disabled(geminiKey.isEmpty || readwiseKey.isEmpty)
+                        .disabled(providerKey.isEmpty || readwiseKey.isEmpty)
                 }
             }
             .navigationTitle("Setup")
         }
     }
 
+    private var placeholder: String {
+        switch state.provider {
+        case .gemini: return "AIza..."
+        case .claude: return "sk-ant-..."
+        }
+    }
+
     private func save() {
         do {
-            try state.saveGeminiKey(geminiKey)
+            try state.saveCurrentProviderKey(providerKey)
             try state.saveReadwiseKey(readwiseKey)
             error = nil
         } catch {

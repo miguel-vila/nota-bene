@@ -4,7 +4,7 @@ import SwiftUI
 public struct SettingsView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
-    @State private var geminiInput = ""
+    @State private var providerKeyInput = ""
     @State private var readwiseInput = ""
     @State private var customModelInput = ""
     @State private var statusMessage: String?
@@ -16,35 +16,47 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationStack {
             Form {
-                Section("Gemini") {
-                    HStack {
-                        Text("Stored").foregroundStyle(.secondary)
-                        Spacer()
-                        Text(state.geminiKeyMasked.isEmpty ? "Not set" : state.geminiKeyMasked)
-                            .font(.system(.body, design: .monospaced))
+                Section("Model provider") {
+                    Picker("Provider", selection: $state.provider) {
+                        ForEach(LLMProvider.allCases) { provider in
+                            Text(provider.label).tag(provider)
+                        }
                     }
-                    SecureField("Replace key", text: $geminiInput)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    Button("Save Gemini key") {
-                        save(\.geminiInput, target: .gemini)
-                    }
-                    .disabled(geminiInput.isEmpty)
-                    Button("Test Gemini connection") {
-                        Task { await testGemini() }
-                    }
-                    .disabled(state.geminiKeyMasked.isEmpty || testing)
-                    Button("Clear", role: .destructive) {
-                        try? state.clearGeminiKey()
+                    .onChange(of: state.provider) { _, _ in
+                        providerKeyInput = ""
+                        customModelInput = ""
                     }
                 }
 
-                Section("Gemini model") {
+                Section("\(state.provider.label) API key") {
+                    HStack {
+                        Text("Stored").foregroundStyle(.secondary)
+                        Spacer()
+                        Text(state.currentProviderKeyMasked.isEmpty ? "Not set" : state.currentProviderKeyMasked)
+                            .font(.system(.body, design: .monospaced))
+                    }
+                    SecureField("Replace key", text: $providerKeyInput)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button("Save \(state.provider.label) key") {
+                        saveProviderKey()
+                    }
+                    .disabled(providerKeyInput.isEmpty)
+                    Button("Test \(state.provider.label) connection") {
+                        Task { await testProvider() }
+                    }
+                    .disabled(state.currentProviderKeyMasked.isEmpty || testing)
+                    Button("Clear", role: .destructive) {
+                        clearProviderKey()
+                    }
+                }
+
+                Section("\(state.provider.label) model") {
                     Picker("Model", selection: modelSelection) {
-                        ForEach(GeminiClient.ModelPreset.allCases) { preset in
-                            Text(preset.label).tag(Optional(preset))
+                        ForEach(state.provider.presets) { preset in
+                            Text(preset.label).tag(Optional(preset.rawValue))
                         }
-                        Text("Custom…").tag(Optional<GeminiClient.ModelPreset>.none)
+                        Text("Custom…").tag(Optional<String>.none)
                     }
                     if currentPreset == nil {
                         TextField("Model name", text: $customModelInput)
@@ -57,14 +69,14 @@ public struct SettingsView: View {
                     HStack {
                         Text("Active").foregroundStyle(.secondary)
                         Spacer()
-                        Text(state.geminiModel)
+                        Text(state.currentModel)
                             .font(.system(.body, design: .monospaced))
                     }
                     Button("Reset to default") {
-                        state.resetGeminiModelToDefault()
+                        state.resetCurrentModelToDefault()
                         customModelInput = ""
                     }
-                    .disabled(state.geminiModel == GeminiClient.defaultModel)
+                    .disabled(state.currentModel == state.provider.defaultModel)
                 }
 
                 Section("Readwise") {
@@ -78,7 +90,7 @@ public struct SettingsView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     Button("Save Readwise key") {
-                        save(\.readwiseInput, target: .readwise)
+                        saveReadwise()
                     }
                     .disabled(readwiseInput.isEmpty)
                     Button("Test Readwise connection") {
@@ -106,19 +118,20 @@ public struct SettingsView: View {
         }
     }
 
-    private var currentPreset: GeminiClient.ModelPreset? {
-        GeminiClient.ModelPreset(rawValue: state.geminiModel)
+    private var currentPreset: String? {
+        let active = state.currentModel
+        return state.provider.presets.first(where: { $0.rawValue == active })?.rawValue
     }
 
-    private var modelSelection: Binding<GeminiClient.ModelPreset?> {
+    private var modelSelection: Binding<String?> {
         Binding(
             get: { currentPreset },
             set: { newValue in
-                if let preset = newValue {
-                    state.geminiModel = preset.rawValue
+                if let raw = newValue {
+                    state.setCurrentModel(raw)
                     customModelInput = ""
                 } else {
-                    customModelInput = state.geminiModel
+                    customModelInput = state.currentModel
                 }
             }
         )
@@ -127,29 +140,42 @@ public struct SettingsView: View {
     private func commitCustomModel() {
         let trimmed = customModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        state.geminiModel = trimmed
+        state.setCurrentModel(trimmed)
     }
 
-    private enum Target { case gemini, readwise }
-
-    private func save(_ keyPath: KeyPath<SettingsView, String>, target: Target) {
+    private func saveProviderKey() {
         do {
-            switch target {
-            case .gemini:
-                try state.saveGeminiKey(geminiInput)
-                geminiInput = ""
-            case .readwise:
-                try state.saveReadwiseKey(readwiseInput)
-                readwiseInput = ""
-            }
+            try state.saveCurrentProviderKey(providerKeyInput)
+            providerKeyInput = ""
             setStatus("Saved.", isError: false)
         } catch {
             setStatus(error.localizedDescription, isError: true)
         }
     }
 
-    private func testGemini() async {
-        guard let client = state.currentGeminiClient() else { return }
+    private func saveReadwise() {
+        do {
+            try state.saveReadwiseKey(readwiseInput)
+            readwiseInput = ""
+            setStatus("Saved.", isError: false)
+        } catch {
+            setStatus(error.localizedDescription, isError: true)
+        }
+    }
+
+    private func clearProviderKey() {
+        do {
+            switch state.provider {
+            case .gemini: try state.clearGeminiKey()
+            case .claude: try state.clearClaudeKey()
+            }
+        } catch {
+            setStatus(error.localizedDescription, isError: true)
+        }
+    }
+
+    private func testProvider() async {
+        guard let extractor = state.currentExtractor() else { return }
         testing = true
         defer { testing = false }
         // Minimal request: a 1×1 transparent PNG.
@@ -162,12 +188,12 @@ public struct SettingsView: View {
             0x45,0x4E,0x44,0xAE,0x42,0x60,0x82
         ])
         do {
-            _ = try await client.extractHighlights(fromImages: [pixel], mimeType: "image/png")
-            setStatus("Gemini key works.", isError: false)
-        } catch GeminiError.invalidKey {
-            setStatus("Gemini key rejected.", isError: true)
+            _ = try await extractor.extractHighlights(fromImages: [pixel], mimeType: "image/png")
+            setStatus("\(state.provider.label) key works.", isError: false)
+        } catch ExtractionError.invalidKey {
+            setStatus("\(state.provider.label) key rejected.", isError: true)
         } catch {
-            setStatus("Gemini error: \(error.localizedDescription)", isError: true)
+            setStatus("\(state.provider.label) error: \(error.localizedDescription)", isError: true)
         }
     }
 

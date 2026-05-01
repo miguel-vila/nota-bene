@@ -8,11 +8,14 @@ public protocol SecretStore: AnyObject, Sendable {
 
 public enum SecretKey {
     public static let gemini = "readwise_highlighter.gemini_key"
+    public static let claude = "readwise_highlighter.claude_key"
     public static let readwise = "readwise_highlighter.readwise_key"
 }
 
 public enum PreferenceKey {
     public static let geminiModel = "readwise_highlighter.gemini_model"
+    public static let claudeModel = "readwise_highlighter.claude_model"
+    public static let provider = "readwise_highlighter.provider"
 }
 
 public final class InMemorySecretStore: SecretStore, @unchecked Sendable {

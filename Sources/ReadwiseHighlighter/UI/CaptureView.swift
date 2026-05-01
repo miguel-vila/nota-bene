@@ -44,16 +44,17 @@ public struct CaptureFlowContainer: View {
             flow.skipExtraction()
             return
         }
-        guard let client = state.currentGeminiClient() else {
-            flow.lastError = "Gemini key missing — open Settings."
+        let providerLabel = state.provider.label
+        guard let extractor = state.currentExtractor() else {
+            flow.lastError = "\(providerLabel) key missing — open Settings."
             flow.skipExtraction()
             return
         }
         do {
-            let result = try await client.extractHighlights(fromImages: flow.images)
+            let result = try await extractor.extractHighlights(fromImages: flow.images, mimeType: "image/jpeg")
             flow.applyExtraction(result)
-        } catch GeminiError.invalidKey {
-            flow.lastError = "Gemini key rejected — update it in Settings."
+        } catch ExtractionError.invalidKey {
+            flow.lastError = "\(providerLabel) key rejected — update it in Settings."
             flow.skipExtraction()
         } catch {
             flow.lastError = "Extraction failed: \(error.localizedDescription)"

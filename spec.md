@@ -4,18 +4,33 @@
 
 A native iPhone app that turns highlighted passages in physical books into Readwise highlights. The user selects a book, photographs a highlighted passage, lets a vision LLM extract the text and (optionally) the page number, reviews/edits the result, and submits it to Readwise.
 
+## Model providers
+
+The app supports multiple vision-LLM providers. v1 ships with two:
+
+- **Gemini** (Google) — default. Uses the `generativelanguage.googleapis.com` REST endpoint with the user's API key.
+- **Claude** (Anthropic) — uses the `api.anthropic.com/v1/messages` endpoint with the user's API key. Structured output is forced via tool use (a `report_highlights` tool whose `input_schema` matches the highlights JSON shape).
+
+Adding a new provider is a matter of conforming a new client to `HighlightExtractor` and listing the provider in the `LLMProvider` enum (with its preset model list). The capture/extraction flow is provider-agnostic.
+
 ## First-launch setup
 
-- On first launch, the user is prompted to paste:
-  - Gemini API key
-  - Readwise API key
-- Both keys are required before the app becomes usable.
-- Keys are stored in the iOS Keychain (not UserDefaults).
-- A Settings screen allows the user to view (masked), replace, or clear either key.
+- On first launch, the user is prompted to:
+  - Pick a model provider (Gemini or Claude).
+  - Paste the API key for that provider.
+  - Paste the Readwise API key.
+- The active provider's API key plus the Readwise key are required before the app becomes usable. The user can switch providers later in Settings; switching to a provider whose key is not yet set returns the app to the setup state until that key is provided.
+- Keys are stored in the iOS Keychain (not UserDefaults). Each provider's key is stored under its own keychain item, so switching back and forth does not require re-pasting.
+- A Settings screen allows the user to view (masked), replace, or clear any key.
 - Settings includes a "Test connection" action for each key:
-  - Gemini: a minimal text-only request.
+  - Active provider: a minimal vision request.
   - Readwise: `GET /api/v2/auth/`.
-- Settings also lets the user pick which Gemini model to use. A short list of recommended presets (Flash, Pro, Flash Lite) covers the common cases, and a "Custom…" option allows entering an arbitrary model name for advanced users. The selection is persisted across launches and applied to all subsequent extractions; a "Reset to default" action restores the recommended default.
+- Settings is structured so that the **provider selector comes first**. The chosen provider drives which API-key section and which model picker are shown below. Each provider has its own model preset list and persisted model selection:
+  - Gemini presets: Flash (default), Pro, Flash Lite.
+  - Claude presets: Sonnet (default), Opus, Haiku.
+  - A "Custom…" option allows entering an arbitrary model name for advanced users.
+  - "Reset to default" restores the recommended default for the active provider.
+- The active provider and per-provider model selections are persisted across launches and applied to all subsequent extractions.
 
 ## Main flow
 
@@ -47,7 +62,8 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 
 ### 3. Extraction
 
-- The captured image(s) are sent to the Gemini API (multimodal model, e.g. `gemini-2.5-flash` for speed; configurable) in a single request — multiple page images are passed as separate `inline_data` parts in reading order, so the model can natively merge a highlight that wraps across the page break instead of forcing the client to stitch.
+- The captured image(s) are sent to the **active provider's vision model** (Gemini or Claude — configurable; see "Model providers" above) in a single request. Multiple page images are passed as separate parts in reading order (Gemini: `inline_data` parts; Claude: `image` content blocks), so the model can natively merge a highlight that wraps across the page break instead of forcing the client to stitch.
+- Both providers share the same extraction prompt and produce the same JSON shape. Provider choice is invisible to the rest of the flow.
 - The request uses structured output (JSON schema) and returns an array of highlights, each with:
   - `text` (string): the text marked with highlighter, pen, pencil, bracket, or underline. Verbatim, preserving punctuation.
   - `page_number` (integer | null): the page number visible in the photo, if any.
@@ -112,15 +128,16 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 
 ## Error handling
 
-- Invalid Gemini key → block extraction, prompt the user to update the key in Settings.
+- Invalid provider (Gemini/Claude) key → block extraction, prompt the user to update the key in Settings (or switch to a provider whose key is set).
 - Invalid Readwise key → block submission, prompt the user to update the key in Settings.
-- Gemini returns empty `highlighted_text` → still proceed to Review with empty text and a small notice ("No highlight detected — type the passage manually").
+- Provider returns an empty highlights array → still proceed to Review with empty text and a small notice ("No highlight detected — type the passage manually").
 - Network failure on Readwise submit → stay on Review with retry; no automatic background queue in v1.
 - Camera permission denied → show explanation with a "Open Settings" deep link.
 
 ## API integrations
 
-- **Gemini**: `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent` with the user's API key. Multimodal request with the captured image plus instruction prompt and JSON schema.
+- **Gemini**: `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent` with the user's API key (`x-goog-api-key` header). Multimodal request with the captured image plus instruction prompt and JSON schema (`generationConfig.responseSchema`).
+- **Claude**: `https://api.anthropic.com/v1/messages` with the user's API key (`x-api-key` header) and the `anthropic-version: 2023-06-01` header. Multimodal request with `image` content blocks plus the instruction prompt as the `system` field. Structured output is enforced via a single tool (`report_highlights`) with `tool_choice: {type: "tool", name: "report_highlights"}`; the response's `tool_use` block carries the highlights JSON.
 - **Readwise**:
   - `GET /api/v2/books/?category=books` — list user's books.
   - `POST /api/v2/highlights/` — create highlight(s).
@@ -134,7 +151,11 @@ A native iPhone app that turns highlighted passages in physical books into Readw
 - Google's original `GoogleGenerativeAI` package (`github.com/google-gemini/generative-ai-swift`) is **deprecated** and frozen — Google explicitly states no further changes will be made to it.
 - Google's currently-supported path is the **Firebase AI Logic SDK** (`FirebaseAILogic` library, part of `firebase-ios-sdk`). It does **not** fit this app's design: it requires a Firebase project and routes calls through Firebase rather than accepting a user-supplied raw Gemini API key. Since the whole point of this app is "user pastes their own Gemini API key," this SDK is not usable.
 - Community alternative: `paradigms-of-intelligence/swift-gemini-api` accepts a raw API key but is small, single-maintainer, and not battle-tested.
-- **Recommendation: skip the SDKs and call the Gemini REST endpoint directly via URLSession.** The app makes exactly one kind of call (multimodal + structured JSON output). A direct REST client is ~50 lines of Swift, has zero dependency risk, and will not be invalidated by future Google SDK reorganizations. Wrap it in a `GeminiClient` actor with one method: `extractHighlights(fromImages: [Data]) async throws -> ExtractionResult`.
+- **Recommendation: skip the SDKs and call the Gemini REST endpoint directly via URLSession.** The app makes exactly one kind of call (multimodal + structured JSON output). A direct REST client is ~50 lines of Swift, has zero dependency risk, and will not be invalidated by future Google SDK reorganizations. Wrap it in a `GeminiClient` actor that conforms to a small `HighlightExtractor` protocol with one method: `extractHighlights(fromImages: [Data], mimeType: String) async throws -> ExtractionResult`.
+
+### Claude (Swift SDK landscape)
+
+- Anthropic does not publish a first-party Swift SDK. As with Gemini, we call the REST endpoint directly via `URLSession` and wrap it in a `ClaudeClient` actor that conforms to the same `HighlightExtractor` protocol — so the capture flow doesn't care which provider it talks to.
 
 ### Readwise
 

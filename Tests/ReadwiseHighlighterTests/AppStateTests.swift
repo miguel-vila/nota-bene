@@ -168,6 +168,33 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.phase, .ready)
     }
 
+    func test_experimentalMergeHighlights_defaultsFalse() {
+        let state = AppState(
+            secretStore: InMemorySecretStore(),
+            bookStore: BookStore(url: tempBookStoreURL()),
+            defaults: makeDefaults()
+        )
+        XCTAssertFalse(state.experimentalMergeHighlights)
+    }
+
+    func test_experimentalMergeHighlights_persistsAcrossInstances() {
+        let defaults = makeDefaults()
+        let url = tempBookStoreURL()
+        let first = AppState(
+            secretStore: InMemorySecretStore(),
+            bookStore: BookStore(url: url),
+            defaults: defaults
+        )
+        first.experimentalMergeHighlights = true
+
+        let second = AppState(
+            secretStore: InMemorySecretStore(),
+            bookStore: BookStore(url: url),
+            defaults: defaults
+        )
+        XCTAssertTrue(second.experimentalMergeHighlights)
+    }
+
     func test_currentExtractor_picksProviderClient() throws {
         let secrets = InMemorySecretStore()
         let state = AppState(

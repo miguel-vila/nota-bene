@@ -28,6 +28,9 @@ public final class AppState: ObservableObject {
     @Published public var debugMode: Bool {
         didSet { defaults.set(debugMode, forKey: PreferenceKey.debugMode) }
     }
+    @Published public var experimentalMergeHighlights: Bool {
+        didSet { defaults.set(experimentalMergeHighlights, forKey: PreferenceKey.experimentalMergeHighlights) }
+    }
 
     public let secretStore: SecretStore
     public private(set) var bookStore: BookStore
@@ -58,6 +61,7 @@ public final class AppState: ObservableObject {
         self.claudeModel = (storedClaude?.isEmpty == false ? storedClaude! : ClaudeClient.defaultModel)
 
         self.debugMode = defaults.bool(forKey: PreferenceKey.debugMode)
+        self.experimentalMergeHighlights = defaults.bool(forKey: PreferenceKey.experimentalMergeHighlights)
 
         refreshKeyState()
     }

@@ -96,6 +96,15 @@ public struct SettingsView: View {
                     }
                 }
 
+                Section("Experimental") {
+                    Toggle("Merge highlights", isOn: $state.experimentalMergeHighlights)
+                    if state.experimentalMergeHighlights {
+                        Text("Adds a 'Merge with above' button on each highlight in the Review screen. Combines text with a single space, keeps the upper highlight's page number, and concatenates non-empty notes.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Readwise") {
                     HStack {
                         Text("Stored").foregroundStyle(.secondary)

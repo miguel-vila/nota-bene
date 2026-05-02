@@ -156,6 +156,34 @@ public final class CaptureFlow: ObservableObject {
         }
     }
 
+    public func mergeHighlight(at index: Int) {
+        guard index > 0, index < highlights.count else { return }
+        let lower = highlights.remove(at: index)
+        var upper = highlights[index - 1]
+        upper.text = Self.combineText(upper.text, lower.text)
+        upper.pageNumberInput = upper.pageNumberInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? lower.pageNumberInput
+            : upper.pageNumberInput
+        upper.note = Self.combineNote(upper.note, lower.note)
+        highlights[index - 1] = upper
+    }
+
+    private static func combineText(_ a: String, _ b: String) -> String {
+        let trimmedA = a.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedB = b.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedA.isEmpty { return b }
+        if trimmedB.isEmpty { return a }
+        return trimmedA + " " + trimmedB
+    }
+
+    private static func combineNote(_ a: String, _ b: String) -> String {
+        let trimmedA = a.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedB = b.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedA.isEmpty { return b }
+        if trimmedB.isEmpty { return a }
+        return a + "\n\n" + b
+    }
+
     public func reset(keepingBook keep: Bool = true) {
         images = []
         highlights = []

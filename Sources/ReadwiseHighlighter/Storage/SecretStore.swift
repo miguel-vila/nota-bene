@@ -17,6 +17,7 @@ public enum PreferenceKey {
     public static let claudeModel = "readwise_highlighter.claude_model"
     public static let provider = "readwise_highlighter.provider"
     public static let debugMode = "readwise_highlighter.debug_mode"
+    public static let experimentalMergeHighlights = "readwise_highlighter.experimental_merge_highlights"
 }
 
 public final class InMemorySecretStore: SecretStore, @unchecked Sendable {

@@ -2,6 +2,7 @@
 import SwiftUI
 
 struct ReviewView: View {
+    @EnvironmentObject private var state: AppState
     @ObservedObject var flow: CaptureFlow
     var onSave: () async -> Void
     var onCancel: () -> Void
@@ -27,6 +28,16 @@ struct ReviewView: View {
 
             ForEach($flow.highlights) { $highlight in
                 Section {
+                    if state.experimentalMergeHighlights,
+                       let index = indexFor(highlight),
+                       index > 0 {
+                        Button {
+                            flow.mergeHighlight(at: index)
+                        } label: {
+                            Label("Merge with above", systemImage: "arrow.up")
+                        }
+                        .disabled(flow.stage == .submitting)
+                    }
                     TextEditor(text: $highlight.text)
                         .frame(minHeight: 120)
                     TextField("Page number (optional)", text: $highlight.pageNumberInput)
@@ -89,10 +100,14 @@ struct ReviewView: View {
 
     private func headerTitle(for highlight: CaptureFlow.EditableHighlight) -> String {
         guard flow.highlights.count > 1,
-              let index = flow.highlights.firstIndex(where: { $0.id == highlight.id }) else {
+              let index = indexFor(highlight) else {
             return "Highlight"
         }
         return "Highlight \(index + 1)"
+    }
+
+    private func indexFor(_ highlight: CaptureFlow.EditableHighlight) -> Int? {
+        flow.highlights.firstIndex(where: { $0.id == highlight.id })
     }
 
     private var saveButtonTitle: String {

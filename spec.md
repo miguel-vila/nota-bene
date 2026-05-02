@@ -130,6 +130,18 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
 - `PendingHighlight` (in-memory only during a session): `{ book, images: [Data], highlights: [{ text, pageNumber? }] }`
 - Recently used books and the cached Readwise book list are persisted locally (Core Data, SwiftData, or a JSON file — implementer's choice).
 
+## Experimental features
+
+The Settings screen exposes an "Experimental" section listing opt-in feature flags. Each flag is off by default and is persisted in `UserDefaults` so the choice survives relaunches. Toggling a flag immediately changes the affected UI without requiring a restart.
+
+Active flags:
+
+- **Merge highlights** — adds a "Merge with above" affordance at the top of every highlight after the first in the Review screen. Tapping it folds the current highlight into the one above:
+  - **Text** is concatenated as `<upper> <lower>` (each side trimmed; if either side is empty the other is kept verbatim).
+  - **Page number** keeps the upper highlight's value when present, otherwise falls back to the lower one's.
+  - **Note** is concatenated as `<upper>\n\n<lower>` (each side trimmed; if either side is empty the other is kept verbatim).
+  - The lower highlight is removed and the upper highlight's identity is preserved so the user's editing focus stays put.
+
 ## Error handling
 
 - Invalid provider (Gemini/Claude) key → block extraction, prompt the user to update the key in Settings (or switch to a provider whose key is set).

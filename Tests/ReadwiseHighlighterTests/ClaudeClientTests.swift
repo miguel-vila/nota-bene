@@ -136,7 +136,9 @@ final class ClaudeClientTests: XCTestCase {
         XCTAssertEqual(result.highlights[1].note, "hmm")
     }
     
-    func test_parseResponse_x() throws {
+    func test_parseResponse_incorrectQuotesHandling() throws {
+        // Sometimes claude outputs invalid json containing a quote. This is invalid json
+        // but we have some repair logic that should fix it
         let envelope = #"""
         {
            "model":"claude-sonnet-4-6",

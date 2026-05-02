@@ -99,6 +99,10 @@ public struct CaptureFlowContainer: View {
         } catch ReadwiseError.invalidToken {
             flow.lastError = "Readwise token rejected — update it in Settings."
             flow.stage = .review
+        } catch ReadwiseError.requestFailed(let status, let body) {
+            let detail = state.debugMode ? "\n\n\(body.isEmpty ? "(empty body)" : body)" : ""
+            flow.lastError = "Readwise returned HTTP \(status).\(detail)"
+            flow.stage = .review
         } catch {
             flow.lastError = "Submit failed: \(error.localizedDescription)"
             flow.stage = .review

@@ -62,6 +62,15 @@ public struct CaptureFlowContainer: View {
             flow.applyExtraction(result)
         } catch ExtractionError.invalidKey {
             flow.failExtraction("\(providerLabel) key rejected — update it in Settings.")
+        } catch ExtractionError.requestFailed(let status, let body) {
+            let detail = state.debugMode ? "\n\n\(body.isEmpty ? "(empty body)" : body)" : ""
+            flow.failExtraction("\(providerLabel) returned HTTP \(status).\(detail)")
+        } catch ExtractionError.missingContent(let payload) {
+            let detail = state.debugMode ? "\n\nResponse:\n\(payload.isEmpty ? "(empty)" : payload)" : ""
+            flow.failExtraction("\(providerLabel) response had no extractable content.\(detail)")
+        } catch ExtractionError.decoding(let reason, let payload) {
+            let detail = state.debugMode ? "\n\nResponse:\n\(payload.isEmpty ? "(empty)" : payload)" : ""
+            flow.failExtraction("Couldn't parse \(providerLabel) response: \(reason).\(detail)")
         } catch {
             flow.failExtraction("Extraction failed: \(error.localizedDescription)")
         }
@@ -256,11 +265,16 @@ private struct ExtractionFailedScreen: View {
             Text("Extraction failed")
                 .font(.title3.weight(.semibold))
             if let message = flow.lastError {
-                Text(message)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+                ScrollView {
+                    Text(message)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 24)
+                        .textSelection(.enabled)
+                }
+                .frame(maxHeight: 240)
             }
             Spacer()
             VStack(spacing: 12) {

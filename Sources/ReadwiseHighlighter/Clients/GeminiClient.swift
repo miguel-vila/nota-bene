@@ -117,18 +117,20 @@ public actor GeminiClient: HighlightExtractor {
             let candidates: [Candidate]?
         }
 
+        let envelopePreview = ExtractionError.payloadPreview(data)
         let envelope: Envelope
         do {
             envelope = try JSONDecoder().decode(Envelope.self, from: data)
         } catch {
-            throw ExtractionError.decoding("envelope: \(error)")
+            throw ExtractionError.decoding(reason: "envelope: \(error)", payload: envelopePreview)
         }
 
         guard let parts = envelope.candidates?.first?.content?.parts,
               let text = parts.compactMap(\.text).first,
               let textData = text.data(using: .utf8) else {
-            throw ExtractionError.missingContent
+            throw ExtractionError.missingContent(payload: envelopePreview)
         }
+        let innerPreview = ExtractionError.payloadPreview(textData)
 
         if let strict = try? JSONDecoder().decode(ExtractionResult.self, from: textData) {
             return strict
@@ -152,7 +154,7 @@ public actor GeminiClient: HighlightExtractor {
                 ])
             }
         }
-        throw ExtractionError.decoding("payload not valid JSON")
+        throw ExtractionError.decoding(reason: "payload not valid JSON", payload: innerPreview)
     }
 }
 

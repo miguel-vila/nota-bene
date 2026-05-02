@@ -133,20 +133,21 @@ public actor ClaudeClient: HighlightExtractor {
     }
 
     public static func parseResponse(_ data: Data) throws -> ExtractionResult {
+        let preview = ExtractionError.payloadPreview(data)
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw ExtractionError.decoding("response not valid JSON")
+            throw ExtractionError.decoding(reason: "response not valid JSON", payload: preview)
         }
         guard let blocks = json["content"] as? [[String: Any]] else {
-            throw ExtractionError.missingContent
+            throw ExtractionError.missingContent(payload: preview)
         }
         guard let toolUse = blocks.first(where: {
             ($0["type"] as? String) == "tool_use" && ($0["name"] as? String) == toolName
         }) else {
-            throw ExtractionError.missingContent
+            throw ExtractionError.missingContent(payload: preview)
         }
         guard let input = toolUse["input"] as? [String: Any],
               let rawHighlights = input["highlights"] as? [[String: Any]] else {
-            throw ExtractionError.decoding("tool_use payload missing highlights array")
+            throw ExtractionError.decoding(reason: "tool_use payload missing highlights array", payload: preview)
         }
         let highlights = rawHighlights.compactMap { item -> ExtractionResult.Highlight? in
             guard let text = item["text"] as? String else { return nil }

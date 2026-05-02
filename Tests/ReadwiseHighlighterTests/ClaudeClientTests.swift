@@ -114,9 +114,10 @@ final class ClaudeClientTests: XCTestCase {
         {"content": [{"type": "text", "text": "hello"}]}
         """.data(using: .utf8)!
         XCTAssertThrowsError(try ClaudeClient.parseResponse(data)) { error in
-            guard case ExtractionError.missingContent = error else {
+            guard case ExtractionError.missingContent(let payload) = error else {
                 return XCTFail("expected missingContent, got \(error)")
             }
+            XCTAssertFalse(payload.isEmpty, "payload should be captured for debugging")
         }
     }
 

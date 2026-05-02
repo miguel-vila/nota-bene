@@ -10,6 +10,14 @@ public struct SettingsView: View {
     @State private var statusMessage: String?
     @State private var statusIsError: Bool = false
     @State private var testing: Bool = false
+    @State private var testResult: TestResult?
+
+    private struct TestResult: Identifiable {
+        let id = UUID()
+        let title: String
+        let message: String
+        let isError: Bool
+    }
 
     public init() {}
 
@@ -79,6 +87,15 @@ public struct SettingsView: View {
                     .disabled(state.currentModel == state.provider.defaultModel)
                 }
 
+                Section("Debug") {
+                    Toggle("Show response payload on errors", isOn: $state.debugMode)
+                    if state.debugMode {
+                        Text("Non-2xx responses from the model and Readwise APIs will include the raw body in the error message. Useful when an extraction or test fails for an unclear reason.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Section("Readwise") {
                     HStack {
                         Text("Stored").foregroundStyle(.secondary)
@@ -114,6 +131,13 @@ public struct SettingsView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .alert(item: $testResult) { result in
+                Alert(
+                    title: Text(result.title),
+                    message: Text(result.message),
+                    dismissButton: .default(Text("OK"))
+                )
             }
         }
     }
@@ -187,13 +211,35 @@ public struct SettingsView: View {
             0x05,0x00,0x01,0x0D,0x0A,0x2D,0xB4,0x00,0x00,0x00,0x00,0x49,
             0x45,0x4E,0x44,0xAE,0x42,0x60,0x82
         ])
+        let label = state.provider.label
         do {
             _ = try await extractor.extractHighlights(fromImages: [pixel], mimeType: "image/png")
-            setStatus("\(state.provider.label) key works.", isError: false)
+            showTestResult(title: "Connection succeeded", message: "\(label) key works.", isError: false)
         } catch ExtractionError.invalidKey {
-            setStatus("\(state.provider.label) key rejected.", isError: true)
+            showTestResult(title: "Connection failed", message: "\(label) key rejected.", isError: true)
+        } catch ExtractionError.requestFailed(let status, let body) {
+            let detail = state.debugMode ? "\n\n\(body.isEmpty ? "(empty body)" : body)" : ""
+            showTestResult(
+                title: "Connection failed",
+                message: "\(label) returned HTTP \(status).\(detail)",
+                isError: true
+            )
+        } catch ExtractionError.missingContent(let payload) {
+            let detail = state.debugMode ? "\n\nResponse:\n\(payload.isEmpty ? "(empty)" : payload)" : ""
+            showTestResult(
+                title: "Connection failed",
+                message: "\(label) response had no extractable content.\(detail)",
+                isError: true
+            )
+        } catch ExtractionError.decoding(let reason, let payload) {
+            let detail = state.debugMode ? "\n\nResponse:\n\(payload.isEmpty ? "(empty)" : payload)" : ""
+            showTestResult(
+                title: "Connection failed",
+                message: "Couldn't parse \(label) response: \(reason).\(detail)",
+                isError: true
+            )
         } catch {
-            setStatus("\(state.provider.label) error: \(error.localizedDescription)", isError: true)
+            showTestResult(title: "Connection failed", message: "\(label) error: \(error.localizedDescription)", isError: true)
         }
     }
 
@@ -203,10 +249,25 @@ public struct SettingsView: View {
         defer { testing = false }
         do {
             let ok = try await client.validateToken()
-            setStatus(ok ? "Readwise token works." : "Readwise token rejected.", isError: !ok)
+            showTestResult(
+                title: ok ? "Connection succeeded" : "Connection failed",
+                message: ok ? "Readwise token works." : "Readwise token rejected.",
+                isError: !ok
+            )
+        } catch ReadwiseError.requestFailed(let status, let body) {
+            let detail = state.debugMode ? "\n\n\(body.isEmpty ? "(empty body)" : body)" : ""
+            showTestResult(
+                title: "Connection failed",
+                message: "Readwise returned HTTP \(status).\(detail)",
+                isError: true
+            )
         } catch {
-            setStatus("Readwise error: \(error.localizedDescription)", isError: true)
+            showTestResult(title: "Connection failed", message: "Readwise error: \(error.localizedDescription)", isError: true)
         }
+    }
+
+    private func showTestResult(title: String, message: String, isError: Bool) {
+        testResult = TestResult(title: title, message: message, isError: isError)
     }
 
     private func setStatus(_ message: String, isError: Bool) {

@@ -17,6 +17,33 @@ public enum ExtractionPrompts {
     edge of the photo, do not return it.
     """
 
+    public static let markStylesGuidance = """
+    Only return passages that show a hand-applied mark. Ignore typographic emphasis
+    that is part of the printed book itself — italics, bold, small caps, drop caps,
+    pull quotes, chapter epigraphs, captions, and headings are NOT highlights unless
+    the reader has additionally marked them by hand.
+
+    A hand-applied mark may take any of these forms:
+    - A translucent highlighter overlay covering the text.
+    - A handwritten underline beneath the text (often slightly crooked or extending
+      beyond the text baseline).
+    - An irregular ink or graphite stroke drawn over the text.
+    - A margin bracket drawn alongside the text (a vertical line, square bracket,
+      or curly brace in the margin spanning one or more lines of body text).
+    - A matched PAIR of handwritten corner tags bracketing a passage: a small
+      upper-left corner mark (resembling ⌜) drawn just before the first character
+      of the passage, and a matching bottom-right corner mark (resembling ⌟)
+      drawn just after the last character. Both tags are handwritten in the same
+      pen or pencil ink, roughly the size of a printed character, and come as a
+      pair. When this corner-pair style is used, the highlighted passage is ALL
+      printed body text between the two tags — treat it as a single passage even
+      though no overlay or underline covers the words themselves. Do not include
+      the corner tags in the returned text; they are markers, not content. A
+      lone corner-shaped mark with no matching partner is not a highlight.
+
+    When in doubt, treat the text as unmarked.
+    """
+
     public static let notesGuidance = """
     The reader may have scribbled handwritten notes in the page margins or
     between lines. Notes are HANDWRITTEN by the reader — cursive or block
@@ -41,17 +68,11 @@ public enum ExtractionPrompts {
     You are extracting highlighted passages from a photograph of a book page.
 
     The page may contain zero, one, or multiple distinct passages physically marked
-    by the reader with highlighter, pen, pencil, brackets, or underline. Return
-    every distinct passage you find as a separate entry in the highlights array,
-    in reading order (top to bottom, then left to right).
+    by the reader with highlighter, pen, pencil, brackets, underline, or paired
+    corner tags. Return every distinct passage you find as a separate entry in the
+    highlights array, in reading order (top to bottom, then left to right).
 
-    Only return passages that show a hand-applied mark. Ignore typographic emphasis
-    that is part of the printed book itself — italics, bold, small caps, drop caps,
-    pull quotes, chapter epigraphs, captions, and headings are NOT highlights unless
-    the reader has additionally marked them by hand. A hand-applied mark looks like
-    an irregular ink/graphite stroke, a translucent highlighter overlay, a margin
-    bracket, or an underline drawn by hand (often slightly crooked or extending
-    beyond the text baseline). When in doubt, treat the text as unmarked.
+    \(markStylesGuidance)
 
     \(framingGuidance)
 
@@ -86,25 +107,21 @@ public enum ExtractionPrompts {
     in that order.
 
     A page may contain zero, one, or multiple distinct passages physically marked
-    by the reader with highlighter, pen, pencil, brackets, or underline. Return
-    every distinct passage you find as a separate entry in the highlights array,
-    in reading order across all pages (top to bottom, then left to right, then
-    next page).
+    by the reader with highlighter, pen, pencil, brackets, underline, or paired
+    corner tags. Return every distinct passage you find as a separate entry in
+    the highlights array, in reading order across all pages (top to bottom, then
+    left to right, then next page).
 
     A single highlighted passage may continue from the bottom of one page to the
     top of the next page. When this happens, merge it into a single highlights
     entry — do not return two separate entries. Stitch the text across the page
     break naturally (collapse the page boundary into a single space, and resolve
     any hyphenation at the seam by joining the word parts without a hyphen). Set
-    page_number to the page where the passage begins.
+    page_number to the page where the passage begins. The same applies to a
+    corner-tag passage whose opening tag is on one page and closing tag on the
+    next.
 
-    Only return passages that show a hand-applied mark. Ignore typographic emphasis
-    that is part of the printed book itself — italics, bold, small caps, drop caps,
-    pull quotes, chapter epigraphs, captions, and headings are NOT highlights unless
-    the reader has additionally marked them by hand. A hand-applied mark looks like
-    an irregular ink/graphite stroke, a translucent highlighter overlay, a margin
-    bracket, or an underline drawn by hand (often slightly crooked or extending
-    beyond the text baseline). When in doubt, treat the text as unmarked.
+    \(markStylesGuidance)
 
     \(framingGuidance)
 

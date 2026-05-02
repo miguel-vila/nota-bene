@@ -130,6 +130,7 @@ public actor ReadwiseClient {
         let url = baseURL.appendingPathComponent("/api/v2/highlights/")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.timeoutInterval = 30
         authorize(&request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try Self.makeBody(inputs)

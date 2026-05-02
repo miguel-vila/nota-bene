@@ -92,7 +92,11 @@ public actor ClaudeClient: HighlightExtractor {
         }
         content.append([
             "type": "text",
-            "text": "Extract the highlighted passages from the attached page(s) and report them via the \(toolName) tool."
+            "text": """
+            Extract the highlighted passages from the attached page(s) and report them via the \(toolName) tool.
+
+            Pass the highlights field as a real JSON array of objects in the tool input — do not encode the array as a JSON string. Each text value may itself contain double quotes; include them as ordinary characters inside the string (the JSON serializer will escape them). Do not pre-escape, double-escape, or wrap the array in extra quotes.
+            """
         ])
 
         let schema: [String: Any] = [
@@ -120,7 +124,7 @@ public actor ClaudeClient: HighlightExtractor {
             "system": systemPrompt,
             "tools": [[
                 "name": toolName,
-                "description": "Report the highlighted passages extracted from the photographed pages.",
+                "description": "Report the highlighted passages extracted from the photographed pages. The `highlights` field MUST be a JSON array of objects (not a JSON-encoded string). Quotation marks inside any `text` value should appear as ordinary characters; do not pre-escape them.",
                 "input_schema": schema
             ]],
             "tool_choice": ["type": "tool", "name": toolName],
@@ -151,12 +155,22 @@ public actor ClaudeClient: HighlightExtractor {
         let rawHighlights: [[String: Any]]
         if let array = input["highlights"] as? [[String: Any]] {
             rawHighlights = array
-        } else if let stringified = input["highlights"] as? String,
-                  let stringData = stringified.data(using: .utf8),
-                  let parsed = try? JSONSerialization.jsonObject(with: stringData) as? [[String: Any]] {
+        } else if let stringified = input["highlights"] as? String {
             // Claude occasionally returns the tool input as a JSON-encoded string
-            // instead of the actual array. Re-parse it.
-            rawHighlights = parsed
+            // instead of the actual array, sometimes with unescaped quotes inside
+            // a highlight's text. Try strict parse first, then a best-effort
+            // repair, and only fail if both miss.
+            let stringData = stringified.data(using: .utf8) ?? Data()
+            if let parsed = try? JSONSerialization.jsonObject(with: stringData) as? [[String: Any]] {
+                rawHighlights = parsed
+            } else if let repaired = JSONRepair.parseLeniently(stringified) as? [[String: Any]] {
+                rawHighlights = repaired
+            } else {
+                throw ExtractionError.decoding(
+                    reason: "highlights field is a string but not valid JSON",
+                    payload: ExtractionError.payloadPreview(stringData)
+                )
+            }
         } else {
             throw ExtractionError.decoding(reason: "tool_use payload missing highlights array", payload: preview)
         }

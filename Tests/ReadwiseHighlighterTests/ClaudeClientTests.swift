@@ -135,6 +135,47 @@ final class ClaudeClientTests: XCTestCase {
         XCTAssertNil(result.highlights[1].pageNumber)
         XCTAssertEqual(result.highlights[1].note, "hmm")
     }
+    
+    func test_parseResponse_x() throws {
+        let envelope = #"""
+        {
+           "model":"claude-sonnet-4-6",
+           "id":"msg_01RRwqBXNmVgW4QV3GyQ5oMh",
+           "type":"message",
+           "role":"assistant",
+           "content":[
+              {
+                 "type":"tool_use",
+                 "id":"toolu_01CuHUrJRB51JjrRKnYfUJbZ",
+                 "name":"report_highlights",
+                 "input":{
+                    "highlights":"[\n  {\n    \"text\": \"There is an antidote to this misuse of data. First, make the reports as simple as possible so that everyone understands them. Remember the saying \"Metrics are people, too.\"\",\n    \"page_number\": 144,\n    \"note\": null\n  },\n  {\n    \"text\": \"This is why cohort-based reports are the gold standard of learning metrics: they turn complex actions into people-based reports. Each cohort analysis says: among the people who used our product in this period, here's how many of them exhibited each of the behaviors we care about.\",\n    \"page_number\": 144,\n    \"note\": null\n  },\n  {\n    \"text\": \"Accessibility also refers to widespread access to the reports. Grockit did this especially well. Every day their system automatically generated a document containing the latest data for every single one of their split-test experiments and other leap-of-faith metrics.\",\n    \"page_number\": 145,\n    \"note\": null\n  }\n]"
+                 },
+                 "caller":{
+                    "type":"direct"
+                 }
+              }
+           ],
+           "stop_reason":"tool_use",
+           "stop_sequence":null,
+           "stop_details":null,
+           "usage":{
+              "input_tokens":5338,
+              "cache_creation_input_tokens":0,
+              "cache_read_input_tokens":0,
+              "cache_creation":{
+                 "ephemeral_5m_input_tokens":0,
+                 "ephemeral_1h_input_tokens":0
+              },
+              "output_tokens":268,
+              "service_tier":"standard",
+              "inference_geo":"global"
+           }
+        }
+        """#.data(using: .utf8)!
+        let result = try ClaudeClient.parseResponse(envelope)
+        XCTAssertEqual(result.highlights.count, 3)
+    }
 
     func test_parseResponse_throwsOnMissingToolUse() {
         let data = """

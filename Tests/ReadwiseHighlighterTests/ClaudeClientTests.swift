@@ -109,6 +109,33 @@ final class ClaudeClientTests: XCTestCase {
         XCTAssertTrue(result.highlights.isEmpty)
     }
 
+    func test_parseResponse_recoversWhenHighlightsIsStringifiedArray() throws {
+        // Claude sometimes returns the tool `input` field with `highlights` as a
+        // JSON-encoded string instead of an actual array. The parser should
+        // re-decode the string so the user doesn't see a spurious failure.
+        let envelope = """
+        {
+          "content": [
+            {
+              "type": "tool_use",
+              "name": "report_highlights",
+              "input": {
+                "highlights": "[{\\"text\\":\\"a quote\\",\\"page_number\\":7,\\"note\\":null},{\\"text\\":\\"another\\",\\"page_number\\":null,\\"note\\":\\"hmm\\"}]"
+              }
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+        let result = try ClaudeClient.parseResponse(envelope)
+        XCTAssertEqual(result.highlights.count, 2)
+        XCTAssertEqual(result.highlights[0].text, "a quote")
+        XCTAssertEqual(result.highlights[0].pageNumber, 7)
+        XCTAssertNil(result.highlights[0].note)
+        XCTAssertEqual(result.highlights[1].text, "another")
+        XCTAssertNil(result.highlights[1].pageNumber)
+        XCTAssertEqual(result.highlights[1].note, "hmm")
+    }
+
     func test_parseResponse_throwsOnMissingToolUse() {
         let data = """
         {"content": [{"type": "text", "text": "hello"}]}

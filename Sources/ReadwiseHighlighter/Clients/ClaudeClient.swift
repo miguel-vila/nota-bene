@@ -145,8 +145,19 @@ public actor ClaudeClient: HighlightExtractor {
         }) else {
             throw ExtractionError.missingContent(payload: preview)
         }
-        guard let input = toolUse["input"] as? [String: Any],
-              let rawHighlights = input["highlights"] as? [[String: Any]] else {
+        guard let input = toolUse["input"] as? [String: Any] else {
+            throw ExtractionError.decoding(reason: "tool_use payload missing input object", payload: preview)
+        }
+        let rawHighlights: [[String: Any]]
+        if let array = input["highlights"] as? [[String: Any]] {
+            rawHighlights = array
+        } else if let stringified = input["highlights"] as? String,
+                  let stringData = stringified.data(using: .utf8),
+                  let parsed = try? JSONSerialization.jsonObject(with: stringData) as? [[String: Any]] {
+            // Claude occasionally returns the tool input as a JSON-encoded string
+            // instead of the actual array. Re-parse it.
+            rawHighlights = parsed
+        } else {
             throw ExtractionError.decoding(reason: "tool_use payload missing highlights array", payload: preview)
         }
         let highlights = rawHighlights.compactMap { item -> ExtractionResult.Highlight? in

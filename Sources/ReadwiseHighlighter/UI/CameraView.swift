@@ -77,16 +77,17 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
     private func configureSession() {
         session.beginConfiguration()
         session.sessionPreset = .photo
-        defer { session.commitConfiguration() }
 
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input) else {
+            session.commitConfiguration()
             onError?("Camera unavailable")
             return
         }
         session.addInput(input)
         guard session.canAddOutput(output) else {
+            session.commitConfiguration()
             onError?("Capture output unavailable")
             return
         }
@@ -97,6 +98,8 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
         layer.frame = view.bounds
         view.layer.addSublayer(layer)
         previewLayer = layer
+
+        session.commitConfiguration()
         startSession()
     }
 

@@ -20,6 +20,10 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Caveat-Regular.ttf</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Photograph highlighted passages so they can be sent to Readwise.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

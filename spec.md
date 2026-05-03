@@ -15,10 +15,9 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
 
 ## First-launch setup
 
-- On first launch, the user is prompted to:
-  - Pick a model provider (Gemini or Claude).
-  - Paste the API key for that provider.
-  - Paste the Readwise API key.
+- Setup is a two-step wizard:
+  - **Step 1 — Provider.** The user picks a model provider (Gemini or Claude) from two cards. The "Continue" button advances to step 2.
+  - **Step 2 — Keys.** The user pastes the active provider's API key and the Readwise token in two `KeyField` rows. Each field shows a green `✓ Valid` chip as soon as its value passes a **format check** (Gemini: `AIza…` prefix, Claude: `sk-ant-…` prefix, Readwise: alphanumeric token of at least 20 characters). The format check is purely structural — it does not call the API. Real validation happens when the keys are used (extraction / submit) or via "Test connection" in Settings. The "Finish setup" button is disabled until both fields pass the format check.
 - The active provider's API key plus the Readwise key are required before the app becomes usable. The user can switch providers later in Settings; switching to a provider whose key is not yet set returns the app to the setup state until that key is provided.
 - Keys are stored in the iOS Keychain (not UserDefaults). Each provider's key is stored under its own keychain item, so switching back and forth does not require re-pasting.
 - A Settings screen allows the user to view (masked), replace, or clear any key.
@@ -53,6 +52,7 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
 
 - Full-screen camera view (AVFoundation) opens automatically once a book is selected.
 - Header shows the currently selected book title (tap to change).
+- A `PAGE N / 2` chip in the top-left of the viewport shows which page is about to be captured (1 before any photo is taken, 2 after the first). The chip is hidden when no pages have been captured yet for the current submission, and reappears once at least one page is in the buffer.
 - Capture button takes a still photo.
 - Alternative: a "Pick from library" button to choose an existing photo (e.g. one taken earlier offline).
 - After capture, a preview screen with three actions:
@@ -113,14 +113,24 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
   }
   ```
 
-- On success: brief confirmation, then return to the Capture screen with the same book still selected (so consecutive highlights from the same book require no re-selection).
+- On success: navigate to a dedicated **Saved** screen (see "6. Saved" below) instead of silently returning to capture.
 - On failure: keep the user on the Review screen, show the error, allow retry. Do not lose the edited text.
+
+### 6. Saved
+
+- Shown after a successful submit. Light background, centered content.
+- A snapshot of the just-saved highlights is rendered as **fanned chips** (up to 2 visible), each showing a green check, a `SAVED · P.<n>` mono label, and a single-line excerpt of the highlight text.
+- Headline: "**N highlights** saved." with a yellow swipe behind the count.
+- Two actions:
+  - **Capture another** (primary): returns to the Capture screen with the same book preselected, so consecutive highlights from the same book require no re-selection.
+  - **Done** (ghost): pops back to the Book selection screen.
+- The captured images and draft highlights are cleared from memory once Saved is shown; only the snapshot of the saved highlights is kept for the chip preview. The snapshot is discarded once the user leaves Saved.
 
 ## Navigation
 
 - Tab-less, single stack.
 - Top-level: Book selection.
-- Push: Capture → Preview → Review → (success) → Capture (same book).
+- Push: Capture → Preview → Extracting → Review → Saved → (Capture, same book) **or** (back to Book selection).
 - A "Change book" affordance is available from Capture and Review.
 - Settings is accessible from the Book selection screen via a gear icon.
 

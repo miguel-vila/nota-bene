@@ -24,55 +24,55 @@ public struct BookSelectionView: View {
 
     public var body: some View {
         NavigationStack {
-            List {
-                if query.isEmpty && !recents.isEmpty {
-                    Section("Recent") {
-                        ForEach(recents) { book in
-                            BookRow(book: book) { select(book) }
+            ZStack {
+                Theme.Palette.bg.ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    topBar
+                    headline
+                    searchField
+                        .padding(.horizontal, 24)
+                        .padding(.top, 6)
+                        .padding(.bottom, 14)
+
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            if query.isEmpty && !recents.isEmpty {
+                                section("RECENT", rows: recents)
+                            }
+                            if !libraryMatches.isEmpty {
+                                section("IN YOUR LIBRARY", rows: libraryMatches)
+                            }
+                            if !openLibraryMatches.isEmpty {
+                                section("NEW BOOK", rows: openLibraryMatches)
+                            }
+                            if openLibrarySearching {
+                                HStack(spacing: 8) {
+                                    ProgressView().tint(Theme.Palette.muted)
+                                    Text("Searching…")
+                                        .font(Theme.Typography.sans(13))
+                                        .foregroundStyle(Theme.Palette.muted)
+                                }
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 24)
+                            }
+                            if let libraryError {
+                                Text(libraryError)
+                                    .font(Theme.Typography.sans(12))
+                                    .foregroundStyle(Theme.Palette.danger)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 8)
+                            }
+                            addManuallyButton
+                                .padding(.horizontal, 24)
+                                .padding(.top, 18)
+                                .padding(.bottom, 36)
                         }
                     }
-                }
-                if !libraryMatches.isEmpty {
-                    Section("In your library") {
-                        ForEach(libraryMatches) { book in
-                            BookRow(book: book) { select(book) }
-                        }
-                    }
-                }
-                if !openLibraryMatches.isEmpty {
-                    Section("New book") {
-                        ForEach(openLibraryMatches) { book in
-                            BookRow(book: book) { select(book) }
-                        }
-                    }
-                }
-                if openLibrarySearching {
-                    HStack { ProgressView(); Text("Searching…").foregroundStyle(.secondary) }
-                }
-                if let libraryError {
-                    Text(libraryError).foregroundStyle(.red).font(.footnote)
-                }
-                Section {
-                    Button {
-                        manualEntry = ManualEntry()
-                    } label: {
-                        Label("Add book manually", systemImage: "plus.circle")
-                    }
+                    .refreshable { await refreshLibrary(force: true) }
                 }
             }
-            .listStyle(.insetGrouped)
-            .searchable(text: $query, prompt: "Search books")
-            .navigationTitle("Books")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gear")
-                    }
-                }
-            }
-            .refreshable { await refreshLibrary(force: true) }
+            .navigationBarHidden(true)
             .navigationDestination(item: $selection) { book in
                 CaptureFlowContainer(book: book)
                     .environmentObject(state)
@@ -93,6 +93,96 @@ public struct BookSelectionView: View {
                 debounceSearch(query: newValue)
             }
         }
+    }
+
+    private var topBar: some View {
+        HStack {
+            Text("ReadwiseHighlighter")
+                .font(.system(size: 20, weight: .regular, design: .serif).italic())
+                .kerning(-0.3)
+                .foregroundStyle(Theme.Palette.ink)
+            Spacer()
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(Theme.Palette.ink)
+                    .frame(width: 40, height: 40)
+            }
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 44)
+    }
+
+    private var headline: some View {
+        Text("What are you\nreading?")
+            .font(Theme.Typography.serif(30))
+            .lineSpacing(2)
+            .kerning(-0.6)
+            .foregroundStyle(Theme.Palette.ink)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 18)
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16))
+                .foregroundStyle(Theme.Palette.muted)
+            TextField("Title or author", text: $query)
+                .font(Theme.Typography.sans(15))
+                .foregroundStyle(Theme.Palette.ink)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 50)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Layout.cardRadius)
+                .fill(Theme.Palette.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Layout.cardRadius)
+                .stroke(Theme.Palette.line, lineWidth: 1)
+        )
+    }
+
+    private func section(_ label: String, rows: [Book]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionLabel(label)
+                .padding(.horizontal, 24)
+                .padding(.top, 18)
+                .padding(.bottom, 6)
+            ForEach(rows) { book in
+                BookRow(book: book) { select(book) }
+                Rectangle()
+                    .fill(Theme.Palette.lineSoft)
+                    .frame(height: 1)
+                    .padding(.horizontal, 24)
+            }
+        }
+    }
+
+    private var addManuallyButton: some View {
+        Button { manualEntry = ManualEntry() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("Add book manually")
+                    .font(Theme.Typography.sans(14, weight: .medium))
+            }
+            .foregroundStyle(Theme.Palette.inkSoft)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Layout.smallCardRadius)
+                    .strokeBorder(Theme.Palette.line, style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func select(_ book: Book) {
@@ -178,46 +268,40 @@ private struct BookRow: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                CoverThumbnail(url: book.coverURL)
+                CoverThumbnail(title: book.title, url: book.coverURL, width: 36, height: 50)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(book.title).font(.body).foregroundStyle(.primary)
+                    Text(book.title)
+                        .font(Theme.Typography.sans(14, weight: .medium))
+                        .foregroundStyle(Theme.Palette.ink)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
                     if let author = book.author, !author.isEmpty {
-                        Text(author).font(.footnote).foregroundStyle(.secondary)
+                        Text(author)
+                            .font(Theme.Typography.sans(12))
+                            .foregroundStyle(Theme.Palette.muted)
+                            .lineLimit(1)
                     }
                 }
+                Spacer(minLength: 8)
+                trailingMark
             }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
-}
 
-private struct CoverThumbnail: View {
-    let url: URL?
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color.secondary.opacity(0.15))
-            if let url {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().scaledToFill()
-                    case .empty:
-                        ProgressView().controlSize(.mini)
-                    case .failure:
-                        Image(systemName: "book.closed")
-                            .foregroundStyle(.secondary)
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 4))
-            } else {
-                Image(systemName: "book.closed")
-                    .foregroundStyle(.secondary)
-            }
+    @ViewBuilder
+    private var trailingMark: some View {
+        switch book.source {
+        case .readwise:
+            EmptyView()
+        case .openLibrary, .manual:
+            Image(systemName: "arrow.up.right")
+                .font(.system(size: 12, weight: .regular))
+                .foregroundStyle(Theme.Palette.muted)
         }
-        .frame(width: 36, height: 52)
     }
 }
 
@@ -229,24 +313,35 @@ private struct ManualBookEntryView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Title") {
-                    TextField("Required", text: $title)
-                }
-                Section("Author") {
-                    TextField("Optional", text: $author)
-                }
-            }
-            .navigationTitle("Add book")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let id = "manual:\(UUID().uuidString)"
+            ZStack {
+                Theme.Palette.bg.ignoresSafeArea()
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Add book")
+                        .font(Theme.Typography.serif(28))
+                        .kerning(-0.4)
+                        .foregroundStyle(Theme.Palette.ink)
+                        .padding(.top, 4)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("TITLE")
+                            .font(Theme.Typography.mono(10, weight: .medium))
+                            .tracking(1.4)
+                            .foregroundStyle(Theme.Palette.muted)
+                        ThemedTextField("Required", text: $title, monospaced: false)
+                    }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("AUTHOR")
+                            .font(Theme.Typography.mono(10, weight: .medium))
+                            .tracking(1.4)
+                            .foregroundStyle(Theme.Palette.muted)
+                        ThemedTextField("Optional", text: $author, monospaced: false)
+                    }
+
+                    Spacer()
+
+                    Button {
                         let book = Book(
-                            id: id,
+                            id: "manual:\(UUID().uuidString)",
                             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                             author: author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 ? nil
@@ -255,8 +350,20 @@ private struct ManualBookEntryView: View {
                         )
                         onSave(book)
                         dismiss()
+                    } label: {
+                        Text("Save book")
                     }
+                    .buttonStyle(PrimaryButtonStyle(enabled: !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                     .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .padding(.bottom, 24)
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Theme.Palette.inkSoft)
                 }
             }
         }

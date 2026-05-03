@@ -23,124 +23,42 @@ public struct SettingsView: View {
 
     public var body: some View {
         NavigationStack {
-            Form {
-                Section("Model provider") {
-                    Picker("Provider", selection: $state.provider) {
-                        ForEach(LLMProvider.allCases) { provider in
-                            Text(provider.label).tag(provider)
+            ZStack {
+                Theme.Palette.bg.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        providerSection
+                        keySection
+                        modelSection
+                        readwiseSection
+                        experimentalSection
+                        debugSection
+                        if let statusMessage {
+                            Text(statusMessage)
+                                .font(Theme.Typography.sans(13))
+                                .foregroundStyle(statusIsError ? Theme.Palette.danger : Theme.Palette.success)
                         }
                     }
-                    .onChange(of: state.provider) { _, _ in
-                        providerKeyInput = ""
-                        customModelInput = ""
-                    }
-                }
-
-                Section("\(state.provider.label) API key") {
-                    HStack {
-                        Text("Stored").foregroundStyle(.secondary)
-                        Spacer()
-                        Text(state.currentProviderKeyMasked.isEmpty ? "Not set" : state.currentProviderKeyMasked)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    SecureField("Replace key", text: $providerKeyInput)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    Button("Save \(state.provider.label) key") {
-                        saveProviderKey()
-                    }
-                    .disabled(providerKeyInput.isEmpty)
-                    Button("Test \(state.provider.label) connection") {
-                        Task { await testProvider() }
-                    }
-                    .disabled(state.currentProviderKeyMasked.isEmpty || testing)
-                    Button("Clear", role: .destructive) {
-                        clearProviderKey()
-                    }
-                }
-
-                Section("\(state.provider.label) model") {
-                    Picker("Model", selection: modelSelection) {
-                        ForEach(state.provider.presets) { preset in
-                            Text(preset.label).tag(Optional(preset.rawValue))
-                        }
-                        Text("Custom…").tag(Optional<String>.none)
-                    }
-                    if currentPreset == nil {
-                        TextField("Model name", text: $customModelInput)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .onSubmit { commitCustomModel() }
-                        Button("Use this model") { commitCustomModel() }
-                            .disabled(customModelInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                    }
-                    HStack {
-                        Text("Active").foregroundStyle(.secondary)
-                        Spacer()
-                        Text(state.currentModel)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    Button("Reset to default") {
-                        state.resetCurrentModelToDefault()
-                        customModelInput = ""
-                    }
-                    .disabled(state.currentModel == state.provider.defaultModel)
-                }
-
-                Section("Debug") {
-                    Toggle("Show response payload on errors", isOn: $state.debugMode)
-                    if state.debugMode {
-                        Text("Non-2xx responses from the model and Readwise APIs will include the raw body in the error message. Useful when an extraction or test fails for an unclear reason.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section("Experimental") {
-                    Toggle("Merge highlights", isOn: $state.experimentalMergeHighlights)
-                    if state.experimentalMergeHighlights {
-                        Text("Adds a 'Merge with above' button on each highlight in the Review screen. Combines text with a single space, keeps the upper highlight's page number, and concatenates non-empty notes.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section("Readwise") {
-                    HStack {
-                        Text("Stored").foregroundStyle(.secondary)
-                        Spacer()
-                        Text(state.readwiseKeyMasked.isEmpty ? "Not set" : state.readwiseKeyMasked)
-                            .font(.system(.body, design: .monospaced))
-                    }
-                    SecureField("Replace key", text: $readwiseInput)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                    Button("Save Readwise key") {
-                        saveReadwise()
-                    }
-                    .disabled(readwiseInput.isEmpty)
-                    Button("Test Readwise connection") {
-                        Task { await testReadwise() }
-                    }
-                    .disabled(state.readwiseKeyMasked.isEmpty || testing)
-                    Button("Clear", role: .destructive) {
-                        try? state.clearReadwiseKey()
-                    }
-                }
-
-                if let statusMessage {
-                    Section {
-                        Text(statusMessage)
-                            .foregroundStyle(statusIsError ? .red : .green)
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .padding(.bottom, 32)
                 }
             }
-            .navigationTitle("Settings")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "arrow.left")
+                            .foregroundStyle(Theme.Palette.ink)
+                    }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Settings")
+                        .font(Theme.Typography.sans(15, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.ink)
                 }
             }
+            .toolbarBackground(Theme.Palette.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .alert(item: $testResult) { result in
                 Alert(
                     title: Text(result.title),
@@ -151,24 +69,265 @@ public struct SettingsView: View {
         }
     }
 
-    private var currentPreset: String? {
-        let active = state.currentModel
-        return state.provider.presets.first(where: { $0.rawValue == active })?.rawValue
-    }
+    // MARK: Sections
 
-    private var modelSelection: Binding<String?> {
-        Binding(
-            get: { currentPreset },
-            set: { newValue in
-                if let raw = newValue {
-                    state.setCurrentModel(raw)
-                    customModelInput = ""
-                } else {
-                    customModelInput = state.currentModel
+    private var providerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("PROVIDER")
+            HStack(spacing: 0) {
+                ForEach(LLMProvider.allCases) { provider in
+                    Button {
+                        if state.provider != provider {
+                            state.provider = provider
+                            providerKeyInput = ""
+                            customModelInput = ""
+                        }
+                    } label: {
+                        Text(provider.label)
+                            .font(Theme.Typography.sans(14, weight: .medium))
+                            .foregroundStyle(state.provider == provider ? Theme.Palette.bg : Theme.Palette.inkSoft)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: Theme.Layout.segmentedHeight)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(state.provider == provider ? Theme.Palette.ink : .clear)
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-        )
+            .padding(4)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Layout.cardRadius)
+                    .fill(Theme.Palette.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Layout.cardRadius)
+                    .stroke(Theme.Palette.line, lineWidth: 1)
+            )
+        }
     }
+
+    private var keySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("\(state.provider.label.uppercased()) · API KEY")
+            ThemedCard {
+                VStack(spacing: 0) {
+                    settingsRow(
+                        title: "Key",
+                        trailing: AnyView(
+                            Text(state.currentProviderKeyMasked.isEmpty ? "Not set" : state.currentProviderKeyMasked)
+                                .font(Theme.Typography.mono(13))
+                                .foregroundStyle(Theme.Palette.ink)
+                        )
+                    )
+                    divider
+                    settingsRow(
+                        title: "Test connection",
+                        trailing: AnyView(
+                            Button {
+                                Task { await testProvider() }
+                            } label: {
+                                Text(testing ? "Testing…" : "Test")
+                                    .font(Theme.Typography.sans(13, weight: .medium))
+                                    .foregroundStyle(state.currentProviderKeyMasked.isEmpty ? Theme.Palette.muted : Theme.Palette.inkSoft)
+                            }
+                            .disabled(state.currentProviderKeyMasked.isEmpty || testing)
+                        )
+                    )
+                }
+            }
+            VStack(spacing: 8) {
+                ThemedTextField("Replace key", text: $providerKeyInput, secure: true)
+                HStack {
+                    Button("Save \(state.provider.label) key") { saveProviderKey() }
+                        .font(Theme.Typography.sans(13, weight: .medium))
+                        .foregroundStyle(providerKeyInput.isEmpty ? Theme.Palette.muted : Theme.Palette.ink)
+                        .disabled(providerKeyInput.isEmpty)
+                    Spacer()
+                    Button("Clear") { clearProviderKey() }
+                        .font(Theme.Typography.sans(13, weight: .medium))
+                        .foregroundStyle(Theme.Palette.danger)
+                }
+            }
+        }
+    }
+
+    private var modelSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("\(state.provider.label.uppercased()) · MODEL")
+            ThemedCard(padding: EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4)) {
+                VStack(spacing: 0) {
+                    ForEach(Array(state.provider.presets.enumerated()), id: \.offset) { idx, preset in
+                        modelRow(label: preset.label, value: preset.rawValue, hint: hint(for: preset.rawValue))
+                        if idx < state.provider.presets.count - 1 || !isUsingPreset {
+                            divider.padding(.horizontal, 10)
+                        }
+                    }
+                    modelRow(label: "Custom…", value: nil, hint: isUsingPreset ? nil : state.currentModel)
+                }
+            }
+            if !isUsingPreset {
+                ThemedTextField("Model name", text: $customModelInput, monospaced: true)
+                    .onSubmit { commitCustomModel() }
+                Button("Use this model") { commitCustomModel() }
+                    .font(Theme.Typography.sans(13, weight: .medium))
+                    .foregroundStyle(customModelInput.trimmingCharacters(in: .whitespaces).isEmpty ? Theme.Palette.muted : Theme.Palette.ink)
+                    .disabled(customModelInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            HStack {
+                Text("Active")
+                    .font(Theme.Typography.sans(12))
+                    .foregroundStyle(Theme.Palette.muted)
+                Spacer()
+                Text(state.currentModel)
+                    .font(Theme.Typography.mono(12))
+                    .foregroundStyle(Theme.Palette.inkSoft)
+                Button("Reset") { state.resetCurrentModelToDefault(); customModelInput = "" }
+                    .font(Theme.Typography.sans(12, weight: .medium))
+                    .foregroundStyle(state.currentModel == state.provider.defaultModel ? Theme.Palette.muted : Theme.Palette.inkSoft)
+                    .disabled(state.currentModel == state.provider.defaultModel)
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
+    private var readwiseSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("READWISE")
+            ThemedCard {
+                VStack(spacing: 0) {
+                    settingsRow(
+                        title: "Token",
+                        trailing: AnyView(
+                            Text(state.readwiseKeyMasked.isEmpty ? "Not set" : state.readwiseKeyMasked)
+                                .font(Theme.Typography.mono(13))
+                                .foregroundStyle(Theme.Palette.ink)
+                        )
+                    )
+                    divider
+                    settingsRow(
+                        title: "Test connection",
+                        trailing: AnyView(
+                            Button {
+                                Task { await testReadwise() }
+                            } label: {
+                                Text(testing ? "Testing…" : "Test")
+                                    .font(Theme.Typography.sans(13, weight: .medium))
+                                    .foregroundStyle(state.readwiseKeyMasked.isEmpty ? Theme.Palette.muted : Theme.Palette.inkSoft)
+                            }
+                            .disabled(state.readwiseKeyMasked.isEmpty || testing)
+                        )
+                    )
+                }
+            }
+            VStack(spacing: 8) {
+                ThemedTextField("Replace token", text: $readwiseInput, secure: true)
+                HStack {
+                    Button("Save Readwise key") { saveReadwise() }
+                        .font(Theme.Typography.sans(13, weight: .medium))
+                        .foregroundStyle(readwiseInput.isEmpty ? Theme.Palette.muted : Theme.Palette.ink)
+                        .disabled(readwiseInput.isEmpty)
+                    Spacer()
+                    Button("Clear") { try? state.clearReadwiseKey() }
+                        .font(Theme.Typography.sans(13, weight: .medium))
+                        .foregroundStyle(Theme.Palette.danger)
+                }
+            }
+        }
+    }
+
+    private var experimentalSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("EXPERIMENTAL")
+            ThemedCard {
+                ToggleRow(
+                    title: "Merge highlights",
+                    subtitle: "Combine adjacent highlights in Review",
+                    isOn: $state.experimentalMergeHighlights
+                )
+            }
+        }
+    }
+
+    private var debugSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionLabel("DEBUG")
+            ThemedCard {
+                ToggleRow(
+                    title: "Show response payload on errors",
+                    subtitle: "Includes raw HTTP body in error messages",
+                    isOn: $state.debugMode
+                )
+            }
+        }
+    }
+
+    // MARK: Row helpers
+
+    private func settingsRow(title: String, trailing: AnyView) -> some View {
+        HStack {
+            Text(title)
+                .font(Theme.Typography.sans(14))
+                .foregroundStyle(Theme.Palette.inkSoft)
+            Spacer()
+            trailing
+        }
+        .padding(.vertical, 10)
+    }
+
+    private var divider: some View {
+        Rectangle().fill(Theme.Palette.lineSoft).frame(height: 1)
+    }
+
+    private func modelRow(label: String, value: String?, hint: String?) -> some View {
+        let isSelected: Bool = {
+            if let value { return state.currentModel == value }
+            return !isUsingPreset
+        }()
+        return Button {
+            if let value {
+                state.setCurrentModel(value)
+                customModelInput = ""
+            } else if isUsingPreset {
+                customModelInput = state.currentModel
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(Theme.Typography.sans(14, weight: .medium))
+                        .foregroundStyle(Theme.Palette.ink)
+                    if let hint, !hint.isEmpty {
+                        Text(hint)
+                            .font(Theme.Typography.sans(11))
+                            .foregroundStyle(Theme.Palette.muted)
+                    }
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.ink)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var isUsingPreset: Bool {
+        state.provider.presets.contains(where: { $0.rawValue == state.currentModel })
+    }
+
+    private func hint(for raw: String) -> String? {
+        if raw == state.provider.defaultModel { return "Recommended" }
+        return nil
+    }
+
+    // MARK: Actions
 
     private func commitCustomModel() {
         let trimmed = customModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -211,7 +370,6 @@ public struct SettingsView: View {
         guard let extractor = state.currentExtractor() else { return }
         testing = true
         defer { testing = false }
-        // Minimal request: a 1×1 transparent PNG.
         let pixel = Data([
             0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,
             0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,
@@ -282,6 +440,60 @@ public struct SettingsView: View {
     private func setStatus(_ message: String, isError: Bool) {
         statusMessage = message
         statusIsError = isError
+    }
+}
+
+// MARK: - Toggle row
+
+private struct ToggleRow: View {
+    let title: String
+    let subtitle: String?
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.Typography.sans(14, weight: .medium))
+                    .foregroundStyle(Theme.Palette.ink)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(Theme.Typography.sans(11))
+                        .foregroundStyle(Theme.Palette.muted)
+                }
+            }
+            Spacer()
+            BrandedToggle(isOn: $isOn)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct BrandedToggle: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button { isOn.toggle() } label: {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(isOn ? Theme.Palette.ink : Theme.Palette.line)
+                    .frame(width: 44, height: 26)
+                ZStack {
+                    if isOn {
+                        Circle()
+                            .fill(Theme.Palette.accent)
+                            .frame(width: 6, height: 6)
+                            .offset(x: -16)
+                    }
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 22, height: 22)
+                        .padding(.horizontal, 2)
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: isOn)
+        }
+        .buttonStyle(.plain)
     }
 }
 #endif

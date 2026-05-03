@@ -8,12 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		04E3DB597BBD8BABC01356C0 /* HighlighterApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F096E193882FC339E9735BAB /* HighlighterApp.swift */; };
+		3351A3FC921252A7A412D819 /* Caveat-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A7C94B0EEA9DCC797E8BF46B /* Caveat-Regular.ttf */; };
 		C18DBAC9E08D26DB924C3A00 /* ReadwiseHighlighter in Frameworks */ = {isa = PBXBuildFile; productRef = 8CCBD6DD0CA5BEAEE593CC18 /* ReadwiseHighlighter */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		10CA44B8C92C5A15D559289A /* ReadwiseHighlighterApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ReadwiseHighlighterApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A19A233E096A6056DE482034 /* readwise-auto-hightlighter */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "readwise-auto-hightlighter"; path = .; sourceTree = SOURCE_ROOT; };
+		A7C94B0EEA9DCC797E8BF46B /* Caveat-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Caveat-Regular.ttf"; sourceTree = "<group>"; };
 		F096E193882FC339E9735BAB /* HighlighterApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HighlighterApp.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -29,6 +31,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2B40F3A2C4106CA92D6AB3C5 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				A7C94B0EEA9DCC797E8BF46B /* Caveat-Regular.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
 		458B8D71620676E6CCCADF40 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
@@ -49,8 +59,17 @@
 			isa = PBXGroup;
 			children = (
 				F096E193882FC339E9735BAB /* HighlighterApp.swift */,
+				83162A4685466C73FC51BE56 /* Resources */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		83162A4685466C73FC51BE56 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2B40F3A2C4106CA92D6AB3C5 /* Fonts */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		9102845AD1FDD08FE4C829E6 = {
@@ -70,6 +89,7 @@
 			buildConfigurationList = 075B1ED1023F254C16E5F1BD /* Build configuration list for PBXNativeTarget "ReadwiseHighlighterApp" */;
 			buildPhases = (
 				6C5D06914C36A26ABC8B63F6 /* Sources */,
+				B0C023D13211AA05DF6C7337 /* Resources */,
 				75170D87E207842121CC1A53 /* Frameworks */,
 			);
 			buildRules = (
@@ -120,6 +140,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B0C023D13211AA05DF6C7337 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3351A3FC921252A7A412D819 /* Caveat-Regular.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		6C5D06914C36A26ABC8B63F6 /* Sources */ = {

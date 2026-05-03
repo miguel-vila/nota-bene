@@ -11,6 +11,7 @@ public final class CaptureFlow: ObservableObject {
         case extractionFailed
         case review
         case submitting
+        case saved
     }
 
     public struct EditableHighlight: Identifiable, Equatable {
@@ -59,6 +60,7 @@ public final class CaptureFlow: ObservableObject {
     @Published public var highlights: [EditableHighlight] = []
     @Published public var lastError: String?
     @Published public var didDetectEmptyHighlight: Bool = false
+    @Published public var lastSavedHighlights: [EditableHighlight] = []
 
     public init(book: Book) {
         self.book = book
@@ -193,6 +195,15 @@ public final class CaptureFlow: ObservableObject {
         if !keep {
             // Caller should swap the book.
         }
+    }
+
+    public func markSaved(_ snapshot: [EditableHighlight]) {
+        lastSavedHighlights = snapshot
+        images = []
+        highlights = []
+        didDetectEmptyHighlight = false
+        lastError = nil
+        stage = .saved
     }
 
     public var savableHighlights: [EditableHighlight] {

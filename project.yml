@@ -24,6 +24,8 @@ targets:
         NSCameraUsageDescription: Photograph highlighted passages so they can be sent to Readwise.
         NSPhotoLibraryUsageDescription: Select an existing photo of a highlighted passage to send to Readwise.
         UILaunchScreen: {}
+        UIAppFonts:
+          - Caveat-Regular.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
     settings:

@@ -99,25 +99,6 @@ public actor ClaudeClient: HighlightExtractor {
             """
         ])
 
-        let schema: [String: Any] = [
-            "type": "object",
-            "properties": [
-                "highlights": [
-                    "type": "array",
-                    "items": [
-                        "type": "object",
-                        "properties": [
-                            "text": ["type": "string"],
-                            "page_number": ["type": ["integer", "null"]],
-                            "note": ["type": ["string", "null"]]
-                        ],
-                        "required": ["text", "page_number", "note"]
-                    ]
-                ]
-            ],
-            "required": ["highlights"]
-        ]
-
         let body: [String: Any] = [
             "model": model,
             "max_tokens": maxTokens,
@@ -125,7 +106,7 @@ public actor ClaudeClient: HighlightExtractor {
             "tools": [[
                 "name": toolName,
                 "description": "Report the highlighted passages extracted from the photographed pages. The `highlights` field MUST be a JSON array of objects (not a JSON-encoded string). Quotation marks inside any `text` value should appear as ordinary characters; do not pre-escape them.",
-                "input_schema": schema
+                "input_schema": ClaudeHighlightSchema.inputSchema
             ]],
             "tool_choice": ["type": "tool", "name": toolName],
             "messages": [[
@@ -158,11 +139,14 @@ public actor ClaudeClient: HighlightExtractor {
         } else if let stringified = input["highlights"] as? String {
             // Claude occasionally returns the tool input as a JSON-encoded string
             // instead of the actual array, sometimes with unescaped quotes inside
-            // a highlight's text. Try strict parse first, then a best-effort
-            // repair, and only fail if both miss.
+            // a highlight's text. Try strict parse first, then a schema-aware
+            // structural parser, then the character-walker repair as a last
+            // resort, and only fail if all three miss.
             let stringData = stringified.data(using: .utf8) ?? Data()
             if let parsed = try? JSONSerialization.jsonObject(with: stringData) as? [[String: Any]] {
                 rawHighlights = parsed
+            } else if let structured = ClaudeHighlightArrayParser.parse(stringified) {
+                rawHighlights = structured
             } else if let repaired = JSONRepair.parseLeniently(stringified) as? [[String: Any]] {
                 rawHighlights = repaired
             } else {

@@ -178,6 +178,47 @@ final class ClaudeClientTests: XCTestCase {
         let result = try ClaudeClient.parseResponse(envelope)
         XCTAssertEqual(result.highlights.count, 3)
     }
+    
+    func test_parseResponse_incorrectQuotesHandling2() throws {
+        let envelope = #"""
+            {
+               "model":"claude-sonnet-4-6",
+               "id":"msg_01RRwqBXNmVgW4QV3GyQ5oMh",
+               "type":"message",
+               "role":"assistant",
+               "content":[
+                  {
+                     "type":"tool_use",
+                     "id":"toolu_01CuHUrJRB51JjrRKnYfUJbZ",
+                     "name":"report_highlights",
+                     "input":{
+                        "highlights":"[{\"text\": \"the fiat currency system was responsible for four \"economic ills\": inflation, instability, undisciplined state expenditure, and economic nationalism.\", \"page_number\": 134, \"note\": null}]"
+                     },
+                     "caller":{
+                        "type":"direct"
+                     }
+                  }
+               ],
+               "stop_reason":"tool_use",
+               "stop_sequence":null,
+               "stop_details":null,
+               "usage":{
+                  "input_tokens":5338,
+                  "cache_creation_input_tokens":0,
+                  "cache_read_input_tokens":0,
+                  "cache_creation":{
+                     "ephemeral_5m_input_tokens":0,
+                     "ephemeral_1h_input_tokens":0
+                  },
+                  "output_tokens":268,
+                  "service_tier":"standard",
+                  "inference_geo":"global"
+               }
+            }
+            """#.data(using: .utf8)!
+        let result = try ClaudeClient.parseResponse(envelope)
+        XCTAssertEqual(result.highlights.count, 1)
+    }
 
     func test_parseResponse_throwsOnMissingToolUse() {
         let data = """

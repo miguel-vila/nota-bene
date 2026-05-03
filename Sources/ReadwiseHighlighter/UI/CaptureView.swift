@@ -214,7 +214,7 @@ private struct CaptureScreen: View {
 
             VStack {
                 Spacer()
-                Text("Frame the highlighted lines.")
+                Text("Frame the highlighted lines in the whole page. Include the page number if possible.")
                     .font(.system(size: 13, weight: .regular, design: .serif).italic())
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.bottom, 16)

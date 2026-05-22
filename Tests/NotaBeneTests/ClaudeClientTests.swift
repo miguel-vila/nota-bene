@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class ClaudeClientTests: XCTestCase {
     func test_makeBody_singleImageHasSystemPromptAndToolForcedJSON() throws {

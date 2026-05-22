@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Readwise Highlighter</string>
+	<string>Nota Bene</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -20,14 +20,14 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Caveat-Regular.ttf</string>
-	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Photograph highlighted passages so they can be sent to Readwise.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Select an existing photo of a highlighted passage to send to Readwise.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Caveat-Regular.ttf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

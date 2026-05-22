@@ -1,5 +1,5 @@
 import Foundation
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class MockHTTPClient: HTTPClient, @unchecked Sendable {
     typealias Handler = @Sendable (URLRequest) throws -> (Data, HTTPURLResponse)

@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class ReadwiseClientTests: XCTestCase {
     func test_makeBody_includesPageLocationWhenSet() throws {

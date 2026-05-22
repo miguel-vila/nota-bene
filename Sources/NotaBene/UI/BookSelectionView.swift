@@ -97,7 +97,7 @@ public struct BookSelectionView: View {
 
     private var topBar: some View {
         HStack {
-            Text("ReadwiseHighlighter")
+            Text("Nota Bene")
                 .font(.system(size: 20, weight: .regular, design: .serif).italic())
                 .kerning(-0.3)
                 .foregroundStyle(Theme.Palette.ink)

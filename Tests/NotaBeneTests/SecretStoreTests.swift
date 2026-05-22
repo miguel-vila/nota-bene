@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class SecretStoreTests: XCTestCase {
     func test_inMemory_roundTrips() throws {

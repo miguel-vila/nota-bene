@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class BookTests: XCTestCase {
     func test_dedupKey_isCaseAndWhitespaceInsensitive() {

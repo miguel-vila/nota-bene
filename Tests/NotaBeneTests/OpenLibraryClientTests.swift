@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class OpenLibraryClientTests: XCTestCase {
     func test_parse_extractsDocsAndPicksFirstAuthor() throws {

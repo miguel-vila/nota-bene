@@ -1,6 +1,6 @@
 #if canImport(SwiftUI)
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 @MainActor
 final class AppStateTests: XCTestCase {

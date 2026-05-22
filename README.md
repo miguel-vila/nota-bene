@@ -1,4 +1,4 @@
-# Readwise Auto Highlighter
+# Nota Bene
 
 iOS app that turns highlighted passages in physical books into Readwise highlights via Gemini.
 
@@ -9,13 +9,13 @@ See [`spec.md`](./spec.md) for the full product spec.
 ```
 Package.swift                          Swift Package (library + tests)
 project.yml                            XcodeGen spec for the iOS App target
-Sources/ReadwiseHighlighter/
+Sources/NotaBene/
   Models/                              Book, ExtractionResult, PendingHighlight
   Clients/                             GeminiClient, ReadwiseClient, OpenLibraryClient (URLSession)
   Storage/                             SecretStore + Keychain impl, BookStore JSON cache
   ViewModels/                          AppState, CaptureFlow, BookSearch
   UI/                                  SwiftUI views + AVFoundation camera (iOS only)
-Tests/ReadwiseHighlighterTests/        XCTest suite (run with `swift test`)
+Tests/NotaBeneTests/                   XCTest suite (run with `swift test`)
 App/                                   Files for the iOS App target
   HighlighterApp.swift                 @main entry, wires up AppState
   Info.plist                           Bundle metadata (regenerated from project.yml)
@@ -37,13 +37,13 @@ The Xcode project is generated from `project.yml` via [XcodeGen](https://github.
 
 ```sh
 brew install xcodegen        # one-time
-xcodegen generate             # regenerates ReadwiseHighlighter.xcodeproj
-open ReadwiseHighlighter.xcodeproj
+xcodegen generate             # regenerates NotaBene.xcodeproj
+open NotaBene.xcodeproj
 ```
 
 Then in Xcode:
 
-1. Select the **ReadwiseHighlighter** target → **Signing & Capabilities** → pick your team.
+1. Select the **NotaBeneApp** target → **Signing & Capabilities** → pick your team.
 2. Plug in your iPhone, select it as the run destination, and hit ⌘R.
 
 The camera does not work in the simulator — you need a real device.

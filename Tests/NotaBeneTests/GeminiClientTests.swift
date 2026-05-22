@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class GeminiClientTests: XCTestCase {
     func test_defaultPrompt_singlePageOmitsCrossPageWording() {

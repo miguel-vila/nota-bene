@@ -7,17 +7,17 @@ public protocol SecretStore: AnyObject, Sendable {
 }
 
 public enum SecretKey {
-    public static let gemini = "readwise_highlighter.gemini_key"
-    public static let claude = "readwise_highlighter.claude_key"
-    public static let readwise = "readwise_highlighter.readwise_key"
+    public static let gemini = "notabene.gemini_key"
+    public static let claude = "notabene.claude_key"
+    public static let readwise = "notabene.readwise_key"
 }
 
 public enum PreferenceKey {
-    public static let geminiModel = "readwise_highlighter.gemini_model"
-    public static let claudeModel = "readwise_highlighter.claude_model"
-    public static let provider = "readwise_highlighter.provider"
-    public static let debugMode = "readwise_highlighter.debug_mode"
-    public static let experimentalMergeHighlights = "readwise_highlighter.experimental_merge_highlights"
+    public static let geminiModel = "notabene.gemini_model"
+    public static let claudeModel = "notabene.claude_model"
+    public static let provider = "notabene.provider"
+    public static let debugMode = "notabene.debug_mode"
+    public static let experimentalMergeHighlights = "notabene.experimental_merge_highlights"
 }
 
 public final class InMemorySecretStore: SecretStore, @unchecked Sendable {

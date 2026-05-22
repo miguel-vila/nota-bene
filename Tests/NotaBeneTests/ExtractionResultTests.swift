@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class ExtractionResultTests: XCTestCase {
     func test_decodes_arrayOfHighlights() throws {

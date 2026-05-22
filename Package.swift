@@ -2,20 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "ReadwiseHighlighter",
+    name: "NotaBene",
     platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
-        .library(name: "ReadwiseHighlighter", targets: ["ReadwiseHighlighter"]),
+        .library(name: "NotaBene", targets: ["NotaBene"]),
     ],
     targets: [
         .target(
-            name: "ReadwiseHighlighter",
-            path: "Sources/ReadwiseHighlighter"
+            name: "NotaBene",
+            path: "Sources/NotaBene"
         ),
         .testTarget(
-            name: "ReadwiseHighlighterTests",
-            dependencies: ["ReadwiseHighlighter"],
-            path: "Tests/ReadwiseHighlighterTests"
+            name: "NotaBeneTests",
+            dependencies: ["NotaBene"],
+            path: "Tests/NotaBeneTests"
         ),
     ]
 )

@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class BookStoreTests: XCTestCase {
     private func tempURL() -> URL {

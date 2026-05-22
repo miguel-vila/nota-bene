@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class BookSearchTests: XCTestCase {
     func test_merge_putsReadwiseFirstAndDedupes() {

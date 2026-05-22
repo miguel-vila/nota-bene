@@ -1,5 +1,5 @@
 import XCTest
-@testable import ReadwiseHighlighter
+@testable import NotaBene
 
 final class JSONRepairTests: XCTestCase {
     func test_escapeStrayQuotes_leavesWellFormedObjectUnchanged() {

@@ -9,7 +9,7 @@ public enum KeychainError: Error, Equatable {
 public final class KeychainSecretStore: SecretStore, @unchecked Sendable {
     private let service: String
 
-    public init(service: String = "io.readwise.highlighter") {
+    public init(service: String = "com.miguelvila.notabene") {
         self.service = service
     }
 

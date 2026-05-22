@@ -1,5 +1,5 @@
 import SwiftUI
-import ReadwiseHighlighter
+import NotaBene
 
 @main
 struct HighlighterApp: App {

@@ -82,7 +82,7 @@ public actor BookStore {
             create: true
         )) ?? FileManager.default.temporaryDirectory
         return base
-            .appendingPathComponent("ReadwiseHighlighter", isDirectory: true)
+            .appendingPathComponent("NotaBene", isDirectory: true)
             .appendingPathComponent("books.json")
     }
 }

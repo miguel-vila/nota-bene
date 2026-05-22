@@ -4,8 +4,10 @@ import SwiftUI
 public struct SetupView: View {
     @EnvironmentObject private var state: AppState
     @State private var step: Step = .provider
+    @State private var providerKey: String = ""
+    @State private var readwiseKey: String = ""
 
-    enum Step { case provider, keys }
+    enum Step { case provider, providerKey, readwiseKey }
 
     public init() {}
 
@@ -14,9 +16,16 @@ public struct SetupView: View {
             Theme.Palette.bg.ignoresSafeArea()
             switch step {
             case .provider:
-                SetupProviderView { step = .keys }
-            case .keys:
-                SetupKeysView()
+                SetupProviderView { step = .providerKey }
+            case .providerKey:
+                SetupProviderKeyView(providerKey: $providerKey) {
+                    step = .readwiseKey
+                }
+            case .readwiseKey:
+                SetupReadwiseKeyView(
+                    readwiseKey: $readwiseKey,
+                    providerKey: providerKey
+                )
             }
         }
         .animation(.easeInOut(duration: 0.25), value: step)
@@ -181,52 +190,120 @@ private struct RadioDot: View {
     }
 }
 
-// MARK: - Step 2: Keys
+// MARK: - Step 2: Provider key
 
-private struct SetupKeysView: View {
+private struct SetupProviderKeyView: View {
     @EnvironmentObject private var state: AppState
-    @State private var providerKey: String = ""
-    @State private var readwiseKey: String = ""
-    @State private var providerValid: Bool = false
-    @State private var readwiseValid: Bool = false
-    @State private var error: String?
+    @Binding var providerKey: String
+    var onContinue: () -> Void
+    @State private var valid: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionLabel("Step 2 of 3 · Keys")
+            SectionLabel("Step 2 of 3 · AI key")
                 .padding(.top, 24)
 
-            Text("Two keys, then we're done.")
+            Text("Your \(state.provider.label) key.")
                 .font(Theme.Typography.serif(32))
                 .kerning(-0.6)
                 .lineSpacing(2)
                 .foregroundStyle(Theme.Palette.ink)
                 .padding(.top, 18)
 
-            Text("Stored in your iOS Keychain. Never sent anywhere except the service it's for.")
+            Text("Used only to read your highlighted pages with \(state.provider.label).")
                 .font(Theme.Typography.serif(15))
                 .foregroundStyle(Theme.Palette.inkSoft)
                 .lineSpacing(2)
                 .padding(.top, 12)
 
-            VStack(spacing: 14) {
-                KeyField(
-                    label: "\(state.provider.label) API key",
-                    hint: providerHint,
-                    value: $providerKey,
-                    valid: providerValid
-                )
-                .onChange(of: providerKey) { _, _ in revalidateProvider() }
-
-                KeyField(
-                    label: "Readwise token",
-                    hint: "readwise.io → Access Token",
-                    value: $readwiseKey,
-                    valid: readwiseValid
-                )
-                .onChange(of: readwiseKey) { _, _ in revalidateReadwise() }
-            }
+            KeyField(
+                label: "\(state.provider.label) API key",
+                hint: providerHint,
+                hintURL: providerHintURL,
+                value: $providerKey,
+                valid: valid
+            )
             .padding(.top, 28)
+            .onChange(of: providerKey) { _, _ in revalidate() }
+
+            PrivacyNotice()
+                .padding(.top, 18)
+
+            Spacer()
+
+            Button(action: onContinue) {
+                Text("Continue")
+            }
+            .buttonStyle(PrimaryButtonStyle(enabled: valid))
+            .disabled(!valid)
+            .padding(.bottom, 38)
+        }
+        .padding(.horizontal, Theme.Layout.setupPadding)
+        .onAppear { revalidate() }
+        .onChange(of: state.provider) { _, _ in
+            providerKey = ""
+            revalidate()
+        }
+    }
+
+    private var providerHint: String {
+        switch state.provider {
+        case .gemini: return "aistudio.google.com → Get API key"
+        case .claude: return "console.anthropic.com → API keys"
+        }
+    }
+
+    private var providerHintURL: URL? {
+        switch state.provider {
+        case .gemini: return URL(string: "https://aistudio.google.com/apikey")
+        case .claude: return URL(string: "https://console.anthropic.com/settings/keys")
+        }
+    }
+
+    private func revalidate() {
+        valid = SetupValidation.looksLikeProviderKey(providerKey, provider: state.provider)
+    }
+}
+
+// MARK: - Step 3: Readwise key
+
+private struct SetupReadwiseKeyView: View {
+    @EnvironmentObject private var state: AppState
+    @Binding var readwiseKey: String
+    let providerKey: String
+    @State private var valid: Bool = false
+    @State private var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionLabel("Step 3 of 3 · Readwise")
+                .padding(.top, 24)
+
+            Text("And your Readwise token.")
+                .font(Theme.Typography.serif(32))
+                .kerning(-0.6)
+                .lineSpacing(2)
+                .foregroundStyle(Theme.Palette.ink)
+                .padding(.top, 18)
+
+            Text("Used only to send extracted highlights to your Readwise account.")
+                .font(Theme.Typography.serif(15))
+                .foregroundStyle(Theme.Palette.inkSoft)
+                .lineSpacing(2)
+                .padding(.top, 12)
+
+            KeyField(
+                label: "Readwise token",
+                hint: "readwise.io → Access Token",
+                hintURL: URL(string: "https://readwise.io/access_token"),
+                value: $readwiseKey,
+                valid: valid
+            )
+            .padding(.top, 28)
+            .onChange(of: readwiseKey) { _, _ in revalidate() }
+
+            PrivacyNotice()
+                .padding(.top, 18)
 
             if let error {
                 Text(error)
@@ -240,8 +317,8 @@ private struct SetupKeysView: View {
             Button(action: save) {
                 Text("Finish setup")
             }
-            .buttonStyle(PrimaryButtonStyle(enabled: canFinish))
-            .disabled(!canFinish)
+            .buttonStyle(PrimaryButtonStyle(enabled: valid))
+            .disabled(!valid)
 
             Text("You can change keys later in Settings.")
                 .font(Theme.Typography.sans(13))
@@ -251,33 +328,11 @@ private struct SetupKeysView: View {
                 .padding(.bottom, 38)
         }
         .padding(.horizontal, Theme.Layout.setupPadding)
-        .onAppear {
-            revalidateProvider()
-            revalidateReadwise()
-        }
-        .onChange(of: state.provider) { _, _ in
-            providerKey = ""
-            revalidateProvider()
-        }
+        .onAppear { revalidate() }
     }
 
-    private var providerHint: String {
-        switch state.provider {
-        case .gemini: return "aistudio.google.com → Get API key"
-        case .claude: return "console.anthropic.com → API keys"
-        }
-    }
-
-    private var canFinish: Bool {
-        providerValid && readwiseValid
-    }
-
-    private func revalidateProvider() {
-        providerValid = SetupValidation.looksLikeProviderKey(providerKey, provider: state.provider)
-    }
-
-    private func revalidateReadwise() {
-        readwiseValid = SetupValidation.looksLikeReadwiseToken(readwiseKey)
+    private func revalidate() {
+        valid = SetupValidation.looksLikeReadwiseToken(readwiseKey)
     }
 
     private func save() {
@@ -296,6 +351,7 @@ private struct SetupKeysView: View {
 private struct KeyField: View {
     let label: String
     let hint: String
+    var hintURL: URL? = nil
     @Binding var value: String
     let valid: Bool
 
@@ -306,9 +362,21 @@ private struct KeyField: View {
                     .font(Theme.Typography.sans(13, weight: .semibold))
                     .foregroundStyle(Theme.Palette.ink)
                 Spacer()
-                Text(hint)
-                    .font(Theme.Typography.mono(10))
-                    .foregroundStyle(Theme.Palette.muted)
+                if let hintURL {
+                    Link(destination: hintURL) {
+                        HStack(spacing: 4) {
+                            Text(hint)
+                                .font(Theme.Typography.mono(10))
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 8, weight: .semibold))
+                        }
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                    }
+                } else {
+                    Text(hint)
+                        .font(Theme.Typography.mono(10))
+                        .foregroundStyle(Theme.Palette.muted)
+                }
             }
             HStack(spacing: 10) {
                 SecureField("Paste token", text: $value)
@@ -338,6 +406,49 @@ private struct KeyField: View {
                     .stroke(Theme.Palette.line, lineWidth: 1)
             )
         }
+    }
+}
+
+// MARK: - Privacy notice
+
+private struct PrivacyNotice: View {
+    private let repoURL = URL(string: "https://github.com/miguel-vila/nota-bene")!
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "lock.shield")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Theme.Palette.inkSoft)
+                .padding(.top, 1)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your keys never leave this device. We don't store or send them anywhere — they live only in your iOS Keychain and are used only to call the service they're for.")
+                    .font(Theme.Typography.sans(12))
+                    .foregroundStyle(Theme.Palette.inkSoft)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Link(destination: repoURL) {
+                    HStack(spacing: 4) {
+                        Text("Source: github.com/miguel-vila/nota-bene")
+                            .font(Theme.Typography.mono(11))
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(Theme.Palette.ink)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Layout.smallCardRadius)
+                .fill(Theme.Palette.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Layout.smallCardRadius)
+                .stroke(Theme.Palette.line, lineWidth: 1)
+        )
     }
 }
 

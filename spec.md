@@ -15,9 +15,16 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
 
 ## First-launch setup
 
-- Setup is a two-step wizard:
+- Setup is a three-step wizard:
   - **Step 1 — Provider.** The user picks a model provider (Gemini or Claude) from two cards. The "Continue" button advances to step 2.
-  - **Step 2 — Keys.** The user pastes the active provider's API key and the Readwise token in two `KeyField` rows. Each field shows a green `✓ Valid` chip as soon as its value passes a **format check** (Gemini: `AIza…` prefix, Claude: `sk-ant-…` prefix, Readwise: alphanumeric token of at least 20 characters). The format check is purely structural — it does not call the API. Real validation happens when the keys are used (extraction / submit) or via "Test connection" in Settings. The "Finish setup" button is disabled until both fields pass the format check.
+  - **Step 2 — AI key.** The user pastes the active provider's API key in a single `KeyField`. The field shows a green `✓ Valid` chip as soon as its value passes a **format check** (Gemini: `AIza…` prefix, Claude: `sk-ant-…` prefix). The "Continue" button is disabled until the field passes the format check.
+  - **Step 3 — Readwise.** The user pastes the Readwise token in a single `KeyField`, with the same format-check chip (Readwise: alphanumeric token of at least 20 characters). The "Finish setup" button is disabled until the field passes the format check; on tap, both keys (the provider key collected in step 2 and the Readwise token collected here) are persisted to the iOS Keychain in one atomic operation.
+- The format check on every key step is purely structural — it does not call the API. Real validation happens when the keys are used (extraction / submit) or via "Test connection" in Settings.
+- **Token-page links.** On both key steps, the right-side hint inside each `KeyField` is a **tappable link** that opens the relevant token page in the default browser, so the user doesn't have to hunt for it:
+  - Gemini → `https://aistudio.google.com/apikey`
+  - Claude → `https://console.anthropic.com/settings/keys`
+  - Readwise → `https://readwise.io/access_token`
+- **Privacy notice.** A privacy notice appears beneath the key field on **both** the AI-key step and the Readwise step. It states that the app does not store or transmit the user's API keys anywhere — they live only in the iOS Keychain on the device and are sent only to the service they're for. The notice includes a link to the app's source code at `https://github.com/miguel-vila/nota-bene` so the user can verify the claim.
 - The active provider's API key plus the Readwise key are required before the app becomes usable. The user can switch providers later in Settings; switching to a provider whose key is not yet set returns the app to the setup state until that key is provided.
 - Keys are stored in the iOS Keychain (not UserDefaults). Each provider's key is stored under its own keychain item, so switching back and forth does not require re-pasting.
 - A Settings screen allows the user to view (masked), replace, or clear any key.

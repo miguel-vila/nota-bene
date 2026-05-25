@@ -25,7 +25,8 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
   - Claude → `https://console.anthropic.com/settings/keys`
   - Readwise → `https://readwise.io/access_token`
 - **Privacy notice.** A privacy notice appears beneath the key field on **both** the AI-key step and the Readwise step. It states that the app does not store or transmit the user's API keys anywhere — they live only in the iOS Keychain on the device and are sent only to the service they're for. The notice includes a link to the app's source code at `https://github.com/miguel-vila/nota-bene` so the user can verify the claim.
-- The active provider's API key plus the Readwise key are required before the app becomes usable. The user can switch providers later in Settings; switching to a provider whose key is not yet set returns the app to the setup state until that key is provided.
+- The active provider's API key plus the Readwise key are required before the app becomes usable. The user can switch providers later in Settings.
+- **Adding a provider key from Settings** does **not** reuse the first-launch wizard. Tapping a provider whose key is not yet set opens a focused single-step sheet that only asks for that provider's API key (reusing the same `KeyField` and `PrivacyNotice` components, with the same format-check chip and token-page link). Saving the key persists it and switches the active provider in one step; cancelling leaves the active provider unchanged. Step 1 (provider picker) is skipped because the provider was already chosen by the tap, and step 3 (Readwise) is skipped because that token was set during first-launch setup.
 - Keys are stored in the iOS Keychain (not UserDefaults). Each provider's key is stored under its own keychain item, so switching back and forth does not require re-pasting.
 - A Settings screen allows the user to view (masked), replace, or clear any key.
 - Settings includes a "Test connection" action for each key:

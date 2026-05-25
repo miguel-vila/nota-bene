@@ -348,7 +348,7 @@ private struct SetupReadwiseKeyView: View {
 
 // MARK: - KeyField
 
-private struct KeyField: View {
+struct KeyField: View {
     let label: String
     let hint: String
     var hintURL: URL? = nil
@@ -411,7 +411,7 @@ private struct KeyField: View {
 
 // MARK: - Privacy notice
 
-private struct PrivacyNotice: View {
+struct PrivacyNotice: View {
     private let repoURL = URL(string: "https://github.com/miguel-vila/nota-bene")!
 
     var body: some View {

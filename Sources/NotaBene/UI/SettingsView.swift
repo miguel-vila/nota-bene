@@ -11,6 +11,7 @@ public struct SettingsView: View {
     @State private var statusIsError: Bool = false
     @State private var testing: Bool = false
     @State private var testResult: TestResult?
+    @State private var addKeyFor: LLMProvider?
 
     private struct TestResult: Identifiable {
         let id = UUID()
@@ -66,6 +67,12 @@ public struct SettingsView: View {
                     dismissButton: .default(Text("OK"))
                 )
             }
+            .sheet(item: $addKeyFor) { provider in
+                AddProviderKeyView(provider: provider) {
+                    addKeyFor = nil
+                }
+                .environmentObject(state)
+            }
         }
     }
 
@@ -77,11 +84,7 @@ public struct SettingsView: View {
             HStack(spacing: 0) {
                 ForEach(LLMProvider.allCases) { provider in
                     Button {
-                        if state.provider != provider {
-                            state.provider = provider
-                            providerKeyInput = ""
-                            customModelInput = ""
-                        }
+                        selectProvider(provider)
                     } label: {
                         Text(provider.label)
                             .font(Theme.Typography.sans(14, weight: .medium))
@@ -329,6 +332,24 @@ public struct SettingsView: View {
 
     // MARK: Actions
 
+    private func selectProvider(_ provider: LLMProvider) {
+        guard state.provider != provider else { return }
+        if hasKey(for: provider) {
+            state.provider = provider
+            providerKeyInput = ""
+            customModelInput = ""
+        } else {
+            addKeyFor = provider
+        }
+    }
+
+    private func hasKey(for provider: LLMProvider) -> Bool {
+        switch provider {
+        case .gemini: return !state.geminiKeyMasked.isEmpty
+        case .claude: return !state.claudeKeyMasked.isEmpty
+        }
+    }
+
     private func commitCustomModel() {
         let trimmed = customModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -494,6 +515,116 @@ private struct BrandedToggle: View {
             .animation(.easeInOut(duration: 0.18), value: isOn)
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Add provider key (focused, single-step)
+
+struct AddProviderKeyView: View {
+    @EnvironmentObject private var state: AppState
+    let provider: LLMProvider
+    let onDone: () -> Void
+
+    @State private var key: String = ""
+    @State private var valid: Bool = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.Palette.bg.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Your \(provider.label) key.")
+                            .font(Theme.Typography.serif(28))
+                            .kerning(-0.6)
+                            .lineSpacing(2)
+                            .foregroundStyle(Theme.Palette.ink)
+                            .padding(.top, 8)
+
+                        Text("Used only to read your highlighted pages with \(provider.label).")
+                            .font(Theme.Typography.serif(15))
+                            .foregroundStyle(Theme.Palette.inkSoft)
+                            .lineSpacing(2)
+                            .padding(.top, 10)
+
+                        KeyField(
+                            label: "\(provider.label) API key",
+                            hint: providerHint,
+                            hintURL: providerHintURL,
+                            value: $key,
+                            valid: valid
+                        )
+                        .padding(.top, 22)
+                        .onChange(of: key) { _, _ in revalidate() }
+
+                        PrivacyNotice()
+                            .padding(.top, 16)
+
+                        if let error {
+                            Text(error)
+                                .font(Theme.Typography.sans(13))
+                                .foregroundStyle(Theme.Palette.danger)
+                                .padding(.top, 12)
+                        }
+
+                        Button(action: save) {
+                            Text("Save and switch to \(provider.label)")
+                        }
+                        .buttonStyle(PrimaryButtonStyle(enabled: valid))
+                        .disabled(!valid)
+                        .padding(.top, 24)
+                    }
+                    .padding(.horizontal, Theme.Layout.setupPadding)
+                    .padding(.bottom, 32)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { onDone() }
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Add \(provider.label) key")
+                        .font(Theme.Typography.sans(15, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.ink)
+                }
+            }
+            .toolbarBackground(Theme.Palette.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
+        .onAppear { revalidate() }
+    }
+
+    private var providerHint: String {
+        switch provider {
+        case .gemini: return "aistudio.google.com → Get API key"
+        case .claude: return "console.anthropic.com → API keys"
+        }
+    }
+
+    private var providerHintURL: URL? {
+        switch provider {
+        case .gemini: return URL(string: "https://aistudio.google.com/apikey")
+        case .claude: return URL(string: "https://console.anthropic.com/settings/keys")
+        }
+    }
+
+    private func revalidate() {
+        valid = SetupValidation.looksLikeProviderKey(key, provider: provider)
+    }
+
+    private func save() {
+        do {
+            switch provider {
+            case .gemini: try state.saveGeminiKey(key)
+            case .claude: try state.saveClaudeKey(key)
+            }
+            state.provider = provider
+            onDone()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }
 #endif

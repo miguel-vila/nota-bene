@@ -12,6 +12,10 @@ public struct SettingsView: View {
     @State private var testing: Bool = false
     @State private var testResult: TestResult?
     @State private var addKeyFor: LLMProvider?
+    @State private var toastMessage: String?
+    @State private var notionWorking: Bool = false
+    @State private var notionError: String?
+    @State private var showingParentPagePicker: Bool = false
 
     private struct TestResult: Identifiable {
         let id = UUID()
@@ -24,14 +28,12 @@ public struct SettingsView: View {
 
     public var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .bottom) {
                 Theme.Palette.bg.ignoresSafeArea()
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
-                        providerSection
-                        keySection
-                        modelSection
-                        readwiseSection
+                    VStack(alignment: .leading, spacing: 28) {
+                        modelGroup
+                        exportTargetsGroup
                         experimentalSection
                         debugSection
                         if let statusMessage {
@@ -44,6 +46,7 @@ public struct SettingsView: View {
                     .padding(.top, 14)
                     .padding(.bottom, 32)
                 }
+                toastOverlay
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -73,10 +76,30 @@ public struct SettingsView: View {
                 }
                 .environmentObject(state)
             }
+            .sheet(isPresented: $showingParentPagePicker) {
+                NotionParentPagePickerView(
+                    currentPageID: state.notionConnection?.parentPageID
+                ) { picked in
+                    if let picked {
+                        state.updateNotionParentPage(pageID: picked.id, title: picked.title)
+                    }
+                    showingParentPagePicker = false
+                }
+                .environmentObject(state)
+            }
         }
     }
 
-    // MARK: Sections
+    // MARK: - Model group
+
+    private var modelGroup: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            SectionLabel("MODEL")
+            providerSection
+            keySection
+            modelSection
+        }
+    }
 
     private var providerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -195,9 +218,33 @@ public struct SettingsView: View {
         }
     }
 
-    private var readwiseSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel("READWISE")
+    // MARK: - Export targets group
+
+    private var exportTargetsGroup: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionLabel("EXPORT TARGETS")
+            Text("Each save fans out to every destination that's enabled and configured.")
+                .font(Theme.Typography.sans(12))
+                .foregroundStyle(Theme.Palette.muted)
+
+            readwiseTargetCard
+            if shouldShowNotion {
+                notionTargetCard
+            }
+        }
+    }
+
+    private var shouldShowNotion: Bool {
+        state.notionOAuthConfig != nil || state.notionConnection != nil
+    }
+
+    private var readwiseTargetCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TargetHeader(
+                target: .readwise,
+                isOn: targetBinding(for: .readwise),
+                disabledReason: state.isTargetConfigured(.readwise) ? nil : "Add your token to enable"
+            )
             ThemedCard {
                 VStack(spacing: 0) {
                     settingsRow(
@@ -208,36 +255,148 @@ public struct SettingsView: View {
                                 .foregroundStyle(Theme.Palette.ink)
                         )
                     )
-                    divider
-                    settingsRow(
-                        title: "Test connection",
-                        trailing: AnyView(
-                            Button {
-                                Task { await testReadwise() }
-                            } label: {
-                                Text(testing ? "Testing…" : "Test")
-                                    .font(Theme.Typography.sans(13, weight: .medium))
-                                    .foregroundStyle(state.readwiseKeyMasked.isEmpty ? Theme.Palette.muted : Theme.Palette.inkSoft)
-                            }
-                            .disabled(state.readwiseKeyMasked.isEmpty || testing)
+                    if state.isTargetConfigured(.readwise) {
+                        divider
+                        settingsRow(
+                            title: "Test connection",
+                            trailing: AnyView(
+                                Button {
+                                    Task { await testReadwise() }
+                                } label: {
+                                    Text(testing ? "Testing…" : "Test")
+                                        .font(Theme.Typography.sans(13, weight: .medium))
+                                        .foregroundStyle(Theme.Palette.inkSoft)
+                                }
+                                .disabled(testing)
+                            )
                         )
-                    )
+                    }
                 }
             }
             VStack(spacing: 8) {
-                ThemedTextField("Replace token", text: $readwiseInput, secure: true)
+                ThemedTextField(
+                    state.isTargetConfigured(.readwise) ? "Replace token" : "Paste Readwise token",
+                    text: $readwiseInput,
+                    secure: true
+                )
                 HStack {
-                    Button("Save Readwise key") { saveReadwise() }
-                        .font(Theme.Typography.sans(13, weight: .medium))
-                        .foregroundStyle(readwiseInput.isEmpty ? Theme.Palette.muted : Theme.Palette.ink)
-                        .disabled(readwiseInput.isEmpty)
+                    Button(state.isTargetConfigured(.readwise) ? "Save Readwise token" : "Save and enable") {
+                        saveReadwise()
+                    }
+                    .font(Theme.Typography.sans(13, weight: .medium))
+                    .foregroundStyle(readwiseInput.isEmpty ? Theme.Palette.muted : Theme.Palette.ink)
+                    .disabled(readwiseInput.isEmpty)
                     Spacer()
-                    Button("Clear") { try? state.clearReadwiseKey() }
-                        .font(Theme.Typography.sans(13, weight: .medium))
-                        .foregroundStyle(Theme.Palette.danger)
+                    if state.isTargetConfigured(.readwise) {
+                        Button("Clear") { clearReadwise() }
+                            .font(Theme.Typography.sans(13, weight: .medium))
+                            .foregroundStyle(Theme.Palette.danger)
+                    }
                 }
             }
         }
+    }
+
+    private var notionTargetCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TargetHeader(
+                target: .notion,
+                isOn: targetBinding(for: .notion),
+                disabledReason: state.isTargetConfigured(.notion) ? nil : notionMissingReason
+            )
+
+            if let connection = state.notionConnection {
+                ThemedCard {
+                    VStack(spacing: 0) {
+                        settingsRow(
+                            title: "Workspace",
+                            trailing: AnyView(
+                                Text(connection.workspaceName ?? "Connected")
+                                    .font(Theme.Typography.sans(13))
+                                    .foregroundStyle(Theme.Palette.ink)
+                            )
+                        )
+                        divider
+                        Button { showingParentPagePicker = true } label: {
+                            HStack {
+                                Text("Parent page")
+                                    .font(Theme.Typography.sans(14))
+                                    .foregroundStyle(Theme.Palette.inkSoft)
+                                Spacer()
+                                Text(connection.parentPageTitle ?? "Choose…")
+                                    .font(Theme.Typography.sans(13))
+                                    .foregroundStyle(connection.parentPageID == nil ? Theme.Palette.danger : Theme.Palette.ink)
+                                    .lineLimit(1)
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(Theme.Palette.muted)
+                            }
+                            .padding(.vertical, 10)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        if state.isTargetConfigured(.notion) {
+                            divider
+                            settingsRow(
+                                title: "Test connection",
+                                trailing: AnyView(
+                                    Button {
+                                        Task { await testNotion() }
+                                    } label: {
+                                        Text(testing ? "Testing…" : "Test")
+                                            .font(Theme.Typography.sans(13, weight: .medium))
+                                            .foregroundStyle(Theme.Palette.inkSoft)
+                                    }
+                                    .disabled(testing)
+                                )
+                            )
+                        }
+                    }
+                }
+                HStack {
+                    Button(notionWorking ? "Working…" : "Reconnect") {
+                        Task { await reconnectNotion() }
+                    }
+                    .font(Theme.Typography.sans(13, weight: .medium))
+                    .foregroundStyle(notionWorking || state.notionOAuthConfig == nil ? Theme.Palette.muted : Theme.Palette.ink)
+                    .disabled(notionWorking || state.notionOAuthConfig == nil)
+                    Spacer()
+                    Button("Disconnect") { disconnectNotion() }
+                        .font(Theme.Typography.sans(13, weight: .medium))
+                        .foregroundStyle(Theme.Palette.danger)
+                }
+            } else {
+                ThemedCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Sign in once so highlights can be appended to a page in your workspace.")
+                            .font(Theme.Typography.sans(13))
+                            .foregroundStyle(Theme.Palette.inkSoft)
+                        Button(action: { Task { await connectNotion() } }) {
+                            HStack {
+                                if notionWorking {
+                                    ProgressView().tint(Theme.Palette.bg)
+                                }
+                                Text(notionWorking ? "Connecting…" : "Connect Notion")
+                            }
+                        }
+                        .buttonStyle(PrimaryButtonStyle(height: Theme.Layout.secondaryButtonHeight, enabled: !notionWorking))
+                        .disabled(notionWorking || state.notionOAuthConfig == nil)
+                    }
+                }
+            }
+
+            if let notionError {
+                Text(notionError)
+                    .font(Theme.Typography.sans(12))
+                    .foregroundStyle(Theme.Palette.danger)
+            }
+        }
+    }
+
+    private var notionMissingReason: String {
+        if state.notionConnection == nil { return "Connect to enable" }
+        if state.notionConnection?.parentPageID == nil { return "Pick a parent page to enable" }
+        return "Not configured"
     }
 
     private var experimentalSection: some View {
@@ -266,7 +425,37 @@ public struct SettingsView: View {
         }
     }
 
-    // MARK: Row helpers
+    // MARK: - Toast overlay
+
+    @ViewBuilder
+    private var toastOverlay: some View {
+        if let toastMessage {
+            Text(toastMessage)
+                .font(Theme.Typography.sans(13, weight: .medium))
+                .foregroundStyle(Theme.Palette.bg)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Theme.Palette.ink)
+                )
+                .padding(.bottom, 24)
+                .padding(.horizontal, 24)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .onAppear {
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_400_000_000)
+                        await MainActor.run {
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                self.toastMessage = nil
+                            }
+                        }
+                    }
+                }
+        }
+    }
+
+    // MARK: - Row helpers
 
     private func settingsRow(title: String, trailing: AnyView) -> some View {
         HStack {
@@ -330,7 +519,30 @@ public struct SettingsView: View {
         return nil
     }
 
-    // MARK: Actions
+    // MARK: - Actions
+
+    private func targetBinding(for target: ExportTarget) -> Binding<Bool> {
+        Binding(
+            get: {
+                state.enabledTargets.contains(target) && state.isTargetConfigured(target)
+            },
+            set: { newValue in
+                if newValue {
+                    if state.isTargetConfigured(target) {
+                        state.enableTarget(target)
+                    } else {
+                        showToast("Configure \(target.label) before enabling it.")
+                    }
+                } else {
+                    do {
+                        try state.disableTarget(target)
+                    } catch {
+                        showToast("At least one destination must stay on.")
+                    }
+                }
+            }
+        )
+    }
 
     private func selectProvider(_ provider: LLMProvider) {
         guard state.provider != provider else { return }
@@ -370,7 +582,19 @@ public struct SettingsView: View {
         do {
             try state.saveReadwiseKey(readwiseInput)
             readwiseInput = ""
+            if !state.enabledTargets.contains(.readwise) {
+                state.enableTarget(.readwise)
+            }
             setStatus("Saved.", isError: false)
+        } catch {
+            setStatus(error.localizedDescription, isError: true)
+        }
+    }
+
+    private func clearReadwise() {
+        do {
+            try state.clearReadwiseKey()
+            setStatus("Readwise token cleared.", isError: false)
         } catch {
             setStatus(error.localizedDescription, isError: true)
         }
@@ -384,6 +608,75 @@ public struct SettingsView: View {
             }
         } catch {
             setStatus(error.localizedDescription, isError: true)
+        }
+    }
+
+    private func connectNotion() async {
+        guard let oauth = state.currentNotionOAuth(),
+              let scheme = state.notionOAuthConfig?.appRedirectScheme else {
+            notionError = "Notion isn't configured for this build."
+            return
+        }
+        notionWorking = true
+        notionError = nil
+        defer { notionWorking = false }
+        do {
+            let session = NotionOAuthSession(oauth: oauth, appRedirectScheme: scheme)
+            let token = try await session.connect()
+            let conn = NotionConnection(
+                workspaceID: token.workspaceID,
+                workspaceName: token.workspaceName,
+                workspaceIcon: token.workspaceIcon.flatMap { URL(string: $0) },
+                botID: token.botID
+            )
+            try state.saveNotionConnection(conn, accessToken: token.accessToken)
+            showingParentPagePicker = true
+        } catch NotionOAuthError.userCancelled {
+            // silent
+        } catch {
+            notionError = "Couldn't connect: \(error.localizedDescription)"
+        }
+    }
+
+    private func reconnectNotion() async {
+        guard let oauth = state.currentNotionOAuth(),
+              let scheme = state.notionOAuthConfig?.appRedirectScheme else {
+            notionError = "Notion isn't configured for this build."
+            return
+        }
+        notionWorking = true
+        notionError = nil
+        defer { notionWorking = false }
+        do {
+            let session = NotionOAuthSession(oauth: oauth, appRedirectScheme: scheme)
+            let token = try await session.connect()
+            let existing = state.notionConnection
+            let conn = NotionConnection(
+                workspaceID: token.workspaceID,
+                workspaceName: token.workspaceName,
+                workspaceIcon: token.workspaceIcon.flatMap { URL(string: $0) },
+                botID: token.botID,
+                parentPageID: existing?.parentPageID,
+                parentPageTitle: existing?.parentPageTitle,
+                bookPageCache: existing?.bookPageCache ?? [:],
+                connectedAt: Date()
+            )
+            try state.saveNotionConnection(conn, accessToken: token.accessToken)
+            setStatus("Notion reconnected.", isError: false)
+        } catch NotionOAuthError.userCancelled {
+            // silent
+        } catch {
+            notionError = "Couldn't reconnect: \(error.localizedDescription)"
+        }
+    }
+
+    private func disconnectNotion() {
+        do {
+            try state.clearNotionConnection()
+            notionError = nil
+            setStatus("Notion disconnected.", isError: false)
+        } catch {
+            notionError = error.localizedDescription
         }
     }
 
@@ -454,6 +747,29 @@ public struct SettingsView: View {
         }
     }
 
+    private func testNotion() async {
+        guard let client = state.currentNotionClient() else { return }
+        testing = true
+        defer { testing = false }
+        do {
+            let ok = try await client.validateToken()
+            showTestResult(
+                title: ok ? "Connection succeeded" : "Connection failed",
+                message: ok ? "Notion token works." : "Notion token rejected.",
+                isError: !ok
+            )
+        } catch NotionError.requestFailed(let status, let body) {
+            let detail = state.debugMode ? "\n\n\(body.isEmpty ? "(empty body)" : body)" : ""
+            showTestResult(
+                title: "Connection failed",
+                message: "Notion returned HTTP \(status).\(detail)",
+                isError: true
+            )
+        } catch {
+            showTestResult(title: "Connection failed", message: "Notion error: \(error.localizedDescription)", isError: true)
+        }
+    }
+
     private func showTestResult(title: String, message: String, isError: Bool) {
         testResult = TestResult(title: title, message: message, isError: isError)
     }
@@ -461,6 +777,173 @@ public struct SettingsView: View {
     private func setStatus(_ message: String, isError: Bool) {
         statusMessage = message
         statusIsError = isError
+    }
+
+    private func showToast(_ message: String) {
+        withAnimation(.easeOut(duration: 0.2)) {
+            toastMessage = message
+        }
+    }
+}
+
+// MARK: - Target header
+
+private struct TargetHeader: View {
+    let target: ExportTarget
+    @Binding var isOn: Bool
+    let disabledReason: String?
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            targetGlyph
+            VStack(alignment: .leading, spacing: 2) {
+                Text(target.label)
+                    .font(Theme.Typography.sans(15, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.ink)
+                Text(disabledReason ?? "On — saving will send highlights here")
+                    .font(Theme.Typography.sans(11))
+                    .foregroundStyle(disabledReason != nil ? Theme.Palette.muted : Theme.Palette.inkSoft)
+            }
+            Spacer()
+            BrandedToggle(isOn: $isOn)
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private var targetGlyph: some View {
+        ZStack {
+            switch target {
+            case .readwise:
+                Circle().fill(Color(hex: 0x2F6CFF))
+                Text("R")
+                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .foregroundStyle(.white)
+            case .notion:
+                Circle().fill(Color.white)
+                    .overlay(Circle().stroke(Theme.Palette.line, lineWidth: 1))
+                Text("N")
+                    .font(.system(size: 13, weight: .bold, design: .serif))
+                    .foregroundStyle(Theme.Palette.ink)
+            }
+        }
+        .frame(width: 26, height: 26)
+    }
+}
+
+// MARK: - Notion parent page picker
+
+private struct NotionParentPagePickerView: View {
+    @EnvironmentObject private var state: AppState
+    @Environment(\.dismiss) private var dismiss
+    let currentPageID: String?
+    var onPick: (NotionClient.PageReference?) -> Void
+
+    @State private var pages: [NotionClient.PageReference] = []
+    @State private var loading: Bool = false
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.Palette.bg.ignoresSafeArea()
+                if loading && pages.isEmpty {
+                    ProgressView().tint(Theme.Palette.ink)
+                } else if let error {
+                    VStack(spacing: 12) {
+                        Text(error)
+                            .font(Theme.Typography.sans(14))
+                            .foregroundStyle(Theme.Palette.danger)
+                        Button("Retry") { Task { await load() } }
+                            .buttonStyle(SecondaryButtonStyle())
+                    }
+                    .padding(24)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 8) {
+                            ForEach(pages, id: \.id) { page in
+                                Button {
+                                    onPick(page)
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "doc.text")
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(Theme.Palette.inkSoft)
+                                            .frame(width: 22)
+                                        Text(page.title)
+                                            .font(Theme.Typography.sans(14))
+                                            .foregroundStyle(Theme.Palette.ink)
+                                            .lineLimit(1)
+                                        Spacer()
+                                        if page.id == currentPageID {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 13, weight: .semibold))
+                                                .foregroundStyle(Theme.Palette.ink)
+                                        }
+                                    }
+                                    .padding(.vertical, 12)
+                                    .padding(.horizontal, 14)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: Theme.Layout.smallCardRadius)
+                                            .fill(page.id == currentPageID ? Theme.Palette.surface : Color.clear)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: Theme.Layout.smallCardRadius)
+                                            .stroke(page.id == currentPageID ? Theme.Palette.ink : Theme.Palette.line, lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            if pages.isEmpty && !loading {
+                                Text("No pages found. Share a page with Nota Bene from Notion's “Connections” menu, then refresh.")
+                                    .font(Theme.Typography.sans(13))
+                                    .foregroundStyle(Theme.Palette.inkSoft)
+                                    .multilineTextAlignment(.center)
+                                    .padding(24)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 14)
+                        .padding(.bottom, 28)
+                    }
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { onPick(nil) }
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("Parent page")
+                        .font(Theme.Typography.sans(15, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.ink)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { Task { await load() } } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundStyle(Theme.Palette.ink)
+                    }
+                    .disabled(loading)
+                }
+            }
+            .toolbarBackground(Theme.Palette.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
+        .onAppear { Task { await load() } }
+    }
+
+    private func load() async {
+        guard let client = state.currentNotionClient() else {
+            error = "Notion client unavailable."
+            return
+        }
+        loading = true
+        error = nil
+        defer { loading = false }
+        do {
+            pages = try await client.searchTopLevelPages()
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }
 

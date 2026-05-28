@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "notabene-oauth",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-05-28",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    // Custom URL scheme the iOS app listens on. The /oauth/notion/callback
+    // handler forwards Notion's redirect (with code/state/error) to this URL.
+    "APP_REDIRECT_SCHEME": "notabene://oauth/notion/callback"
+  }
+  // Secrets (set via `wrangler secret put`, do not commit):
+  //   NOTION_CLIENT_ID
+  //   NOTION_CLIENT_SECRET
+}

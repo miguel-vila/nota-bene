@@ -80,35 +80,75 @@ public struct CaptureFlowContainer: View {
     }
 
     private func submit() async {
-        guard let client = state.currentReadwiseClient() else {
-            flow.lastError = "Readwise key missing — open Settings."
-            return
-        }
-        let inputs = flow.savableHighlights.map {
-            ReadwiseClient.HighlightInput(
+        let book = flow.book
+        let drafts = flow.savableHighlights.map {
+            HighlightDraft(
                 text: $0.trimmedText,
-                title: flow.book.title,
-                author: flow.book.author,
                 pageNumber: $0.parsedPageNumber(),
                 note: $0.noteForSubmission
             )
         }
-        guard !inputs.isEmpty else { return }
+        guard !drafts.isEmpty else { return }
+
+        let activeTargets = state.enabledTargets.intersection(state.configuredTargets())
+        guard !activeTargets.isEmpty else {
+            flow.lastError = "No export target configured — open Settings."
+            return
+        }
+        let pendingTargets = activeTargets.subtracting(flow.targetSuccesses)
+        guard !pendingTargets.isEmpty else {
+            flow.markSaved(flow.savableHighlights)
+            return
+        }
+
+        let notionCache = NotionBookPageCache(
+            initial: state.notionConnection?.bookPageCache ?? [:]
+        )
+        var destinations: [any HighlightDestination] = []
+        for target in pendingTargets {
+            switch target {
+            case .readwise:
+                if let client = state.currentReadwiseClient() {
+                    destinations.append(ReadwiseDestination(client: client))
+                }
+            case .notion:
+                if let client = state.currentNotionClient(),
+                   let parent = state.notionConnection?.parentPageID {
+                    destinations.append(NotionDestination(
+                        client: client,
+                        parentPageID: parent,
+                        cache: notionCache
+                    ))
+                }
+            }
+        }
+        guard !destinations.isEmpty else {
+            flow.lastError = "No export target configured — open Settings."
+            return
+        }
+
         let snapshot = flow.savableHighlights
         flow.stage = .submitting
-        do {
-            try await client.createHighlights(inputs)
+        let result = await HighlightSubmitter.submit(
+            book: book,
+            highlights: drafts,
+            destinations: destinations,
+            debugIncludesBody: state.debugMode
+        )
+
+        let updatedCache = await notionCache.snapshot()
+        for (bookID, pageID) in updatedCache {
+            state.recordNotionBookPage(bookID: bookID, pageID: pageID)
+        }
+        for target in result.succeeded {
+            flow.markTargetSucceeded(target)
+        }
+        let allSucceeded = flow.targetSuccesses.isSuperset(of: activeTargets)
+        if result.isAllSuccess && allSucceeded {
             flow.lastError = nil
             flow.markSaved(snapshot)
-        } catch ReadwiseError.invalidToken {
-            flow.lastError = "Readwise token rejected — update it in Settings."
-            flow.stage = .review
-        } catch ReadwiseError.requestFailed(let status, let body) {
-            let detail = state.debugMode ? "\n\n\(body.isEmpty ? "(empty body)" : body)" : ""
-            flow.lastError = "Readwise returned HTTP \(status).\(detail)"
-            flow.stage = .review
-        } catch {
-            flow.lastError = "Submit failed: \(error.localizedDescription)"
+        } else {
+            flow.lastError = result.failures.map(\.message).joined(separator: "\n")
             flow.stage = .review
         }
     }

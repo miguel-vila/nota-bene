@@ -10,6 +10,7 @@ public enum SecretKey {
     public static let gemini = "notabene.gemini_key"
     public static let claude = "notabene.claude_key"
     public static let readwise = "notabene.readwise_key"
+    public static let notionAccessToken = "notabene.notion_access_token"
 }
 
 public enum PreferenceKey {
@@ -18,6 +19,8 @@ public enum PreferenceKey {
     public static let provider = "notabene.provider"
     public static let debugMode = "notabene.debug_mode"
     public static let experimentalMergeHighlights = "notabene.experimental_merge_highlights"
+    public static let enabledExportTargets = "notabene.enabled_export_targets"
+    public static let notionConnection = "notabene.notion_connection"
 }
 
 public final class InMemorySecretStore: SecretStore, @unchecked Sendable {

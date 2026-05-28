@@ -1,8 +1,15 @@
-# iPhone App Spec — Readwise Physical Highlight Capture
+# iPhone App Spec — Physical Highlight Capture (Nota Bene)
 
 ## Overview
 
-A native iPhone app that turns highlighted passages in physical books into Readwise highlights. The user selects a book, photographs a highlighted passage, lets a vision LLM extract the text and (optionally) the page number, reviews/edits the result, and submits it to Readwise.
+A native iPhone app that turns highlighted passages in physical books into structured highlights. The user selects a book, photographs a highlighted passage, lets a vision LLM extract the text and (optionally) the page number, reviews/edits the result, and submits it to one or more **export targets**.
+
+Export targets supported in v1:
+
+- **Readwise** — the original target. Highlights are POSTed to `/api/v2/highlights/` and the book is created implicitly from the payload's `title`/`author`.
+- **Notion** — appends each captured highlight as a quote block (plus a gray paragraph for the page number / note) under a per-book child page inside a user-chosen parent page.
+
+A user may have **both** targets enabled at the same time. When they do, a Save fans out to every enabled target in parallel and the Saved screen reports per-target success/failure (see "5. Submit" below).
 
 ## Model providers
 
@@ -15,29 +22,36 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
 
 ## First-launch setup
 
-- Setup is a three-step wizard:
+- Setup is a four-step wizard. Steps 1–3 are flat, single-purpose screens; step 4 is repeated once per export target the user picked in step 3.
   - **Step 1 — Provider.** The user picks a model provider (Gemini or Claude) from two cards. The "Continue" button advances to step 2.
-  - **Step 2 — AI key.** The user pastes the active provider's API key in a single `KeyField`. The field shows a green `✓ Valid` chip as soon as its value passes a **format check** (Gemini: `AIza…` prefix, Claude: `sk-ant-…` prefix). The "Continue" button is disabled until the field passes the format check.
-  - **Step 3 — Readwise.** The user pastes the Readwise token in a single `KeyField`, with the same format-check chip (Readwise: alphanumeric token of at least 20 characters). The "Finish setup" button is disabled until the field passes the format check; on tap, both keys (the provider key collected in step 2 and the Readwise token collected here) are persisted to the iOS Keychain in one atomic operation.
+  - **Step 2 — Provider key.** The user pastes the active provider's API key in a single `KeyField`. The field shows a green `✓ Valid` chip as soon as its value passes a **format check** (Gemini: `AIza…` prefix, Claude: `sk-ant-…` prefix). The "Continue" button is disabled until the field passes the format check.
+  - **Step 3 — Pick targets.** The user checks one or both export targets (Readwise, Notion). At least one must be selected to advance. If the app was built without a Notion OAuth configuration (no `NOTION_CLIENT_ID` / `NOTION_WORKER_BASE_URL` in `project.yml`), the Notion option is shown disabled with a hint to configure the worker.
+  - **Step 4 — Configure each selected target** (looped per target, in the order they appear in `ExportTarget.allCases`):
+    - **Readwise**: paste the Readwise token in a single `KeyField`, with the same format-check chip (Readwise: alphanumeric token of at least 20 characters). The "Continue" button is disabled until the field passes the format check.
+    - **Notion**: tap "Connect Notion" to launch the OAuth flow (see "Export targets — Notion" below). After the workspace card appears, the user picks a parent page from `searchTopLevelPages()` and taps "Continue". The Notion access token is stored to the Keychain and the `NotionConnection` to `UserDefaults` **as soon as OAuth completes**, so an interrupted setup leaves the partial connection intact (parent page can be picked later from Settings).
+  - Finishing the last per-target step persists the provider key (and, if Readwise was picked, the Readwise token) to the Keychain in one operation and flips the app to `.ready`.
 - The format check on every key step is purely structural — it does not call the API. Real validation happens when the keys are used (extraction / submit) or via "Test connection" in Settings.
-- **Token-page links.** On both key steps, the right-side hint inside each `KeyField` is a **tappable link** that opens the relevant token page in the default browser, so the user doesn't have to hunt for it:
+- **Token-page links.** On every key step, the right-side hint inside each `KeyField` is a **tappable link** that opens the relevant token page in the default browser, so the user doesn't have to hunt for it:
   - Gemini → `https://aistudio.google.com/apikey`
   - Claude → `https://console.anthropic.com/settings/keys`
   - Readwise → `https://readwise.io/access_token`
-- **Privacy notice.** A privacy notice appears beneath the key field on **both** the AI-key step and the Readwise step. It states that the app does not store or transmit the user's API keys anywhere — they live only in the iOS Keychain on the device and are sent only to the service they're for. The notice includes a link to the app's source code at `https://github.com/miguel-vila/nota-bene` so the user can verify the claim.
-- The active provider's API key plus the Readwise key are required before the app becomes usable. The user can switch providers later in Settings.
-- **Adding a provider key from Settings** does **not** reuse the first-launch wizard. Tapping a provider whose key is not yet set opens a focused single-step sheet that only asks for that provider's API key (reusing the same `KeyField` and `PrivacyNotice` components, with the same format-check chip and token-page link). Saving the key persists it and switches the active provider in one step; cancelling leaves the active provider unchanged. Step 1 (provider picker) is skipped because the provider was already chosen by the tap, and step 3 (Readwise) is skipped because that token was set during first-launch setup.
-- Keys are stored in the iOS Keychain (not UserDefaults). Each provider's key is stored under its own keychain item, so switching back and forth does not require re-pasting.
-- A Settings screen allows the user to view (masked), replace, or clear any key.
-- Settings includes a "Test connection" action for each key:
+- **Privacy notice.** A privacy notice appears beneath the key field on every key-entry step. It states that the app does not store or transmit the user's API keys anywhere — they live only in the iOS Keychain on the device and are sent only to the service they're for. The notice includes a link to the app's source code at `https://github.com/miguel-vila/nota-bene` so the user can verify the claim. (Notion's OAuth flow is exempt — it goes through the Cloudflare Worker; see "Notion API integration".)
+- The active provider's API key plus **at least one configured export target** are required before the app becomes usable. The user can switch providers and add or remove export targets later in Settings.
+- **Adding a provider key from Settings** does **not** reuse the first-launch wizard. Tapping a provider whose key is not yet set opens a focused single-step sheet that only asks for that provider's API key (reusing the same `KeyField` and `PrivacyNotice` components, with the same format-check chip and token-page link). Saving the key persists it and switches the active provider in one step; cancelling leaves the active provider unchanged. The export-targets steps are skipped because those were already configured during first-launch setup (or can be managed from Settings).
+- Keys are stored in the iOS Keychain (not UserDefaults). Each provider's key, the Readwise token, and the Notion access token each live under their own keychain item, so switching back and forth does not require re-pasting.
+- A Settings screen allows the user to view (masked), replace, or clear any key, and to enable/disable individual export targets.
+- Settings includes a "Test connection" action for each configured target:
   - Active provider: a minimal vision request.
   - Readwise: `GET /api/v2/auth/`.
-- Settings is structured so that the **provider selector comes first**. The chosen provider drives which API-key section and which model picker are shown below. Each provider has its own model preset list and persisted model selection:
-  - Gemini presets: Flash (default), Pro, Flash Lite.
-  - Claude presets: Sonnet (default), Opus, Haiku.
-  - A "Custom…" option allows entering an arbitrary model name for advanced users.
-  - "Reset to default" restores the recommended default for the active provider.
-- The active provider and per-provider model selections are persisted across launches and applied to all subsequent extractions.
+  - Notion: `GET /v1/users/me` with the stored access token.
+- Settings is split into two top-level sections:
+  - **Model** — provider selector (segmented), the active provider's API-key card, and the active provider's model picker. Each provider has its own model preset list and persisted model selection:
+    - Gemini presets: Flash (default), Pro, Flash Lite.
+    - Claude presets: Sonnet (default), Opus, Haiku.
+    - A "Custom…" option allows entering an arbitrary model name for advanced users.
+    - "Reset to default" restores the recommended default for the active provider.
+  - **Export targets** — one card per target with a toggle in the header and management actions in the body (token replacement, "Test connection", and, for Notion, parent-page change and "Disconnect"). The toggle for an unconfigured target opens the configuration UI; flipping the toggle off on the last enabled+configured target is rejected with a toast ("At least one destination must stay on.") so the app cannot end up with zero active targets while in `.ready`.
+- The active provider and per-provider model selections are persisted across launches and applied to all subsequent extractions. The set of enabled export targets and the Notion connection (workspace, parent page, per-book page-id cache) are also persisted.
 
 ## Main flow
 
@@ -100,9 +114,11 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
 - Primary action: **Save**. Disabled if no highlight has any text. All non-empty highlights are submitted together.
 - Secondary action: **Cancel**. Discards the highlights and returns to the camera.
 
-### 5. Submit to Readwise
+### 5. Submit
 
-- `POST /api/v2/highlights/` with payload (one entry per highlight from the Review screen):
+On Save, the highlights are fanned out **in parallel** to every export target that is currently enabled and configured (see `HighlightSubmitter.submit`). A `SubmissionResult` records the set of `succeeded` targets and a list of `SubmissionFailure { target, message }` for the rest.
+
+- **Readwise destination**: `POST /api/v2/highlights/` with one entry per highlight from the Review screen:
 
   ```json
   {
@@ -121,8 +137,15 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
   }
   ```
 
-- On success: navigate to a dedicated **Saved** screen (see "6. Saved" below) instead of silently returning to capture.
-- On failure: keep the user on the Review screen, show the error, allow retry. Do not lose the edited text.
+- **Notion destination**: idempotent per (workspace, book).
+  - The destination looks up the book's Notion page id in the per-`NotionConnection` `bookPageCache`. On hit, it appends straight to the cached page; on miss it calls `findOrCreateBookPage`, which paginates the parent page's children searching for an existing child page whose title matches `"<book title> — <author>"` (or just the title when no author). If none is found, a new child page is created via `POST /v1/pages` under the configured parent.
+  - The resolved page id is then written back into both the in-memory `NotionBookPageCache` (the per-submission cache shared across highlights in this submission) and the persisted `NotionConnection.bookPageCache` (so future submissions for the same book go straight to PATCH).
+  - Highlights are appended via `PATCH /v1/blocks/<page>/children` with a `quote` block per highlight, optionally followed by a gray `paragraph` block of the form `P. <n> — Note: <note>` (parts omitted if missing).
+  - **Idempotency caveat.** "Find or create" only deduplicates the *book page*, not the *highlights themselves*. Re-submitting the same highlight for the same book will append a duplicate quote block. This is a deliberate v1 limitation — Notion's block API has no natural id for "this highlight already exists" and the per-highlight equality check (text + page + note) is brittle. Users are expected to treat a successful Save as final.
+
+- On all-success: navigate to the dedicated **Saved** screen (see "6. Saved" below).
+- On any failure: keep the user on the Review screen, show one error message per failed target, allow retry. Do not lose the edited text. Successful targets are not re-sent on retry (a future improvement; v1 retries the whole submission, which is acceptable because Readwise dedup is server-side on (title, text, page) and Notion's only side-effect is the duplicate-quote-block caveat above).
+- Error messages are produced by `HighlightSubmitter.message(for:target:includeBody:)` and surface as user-readable strings (e.g. "Notion access expired — reconnect in Settings.", "Readwise returned HTTP 500."). When **Debug mode** is on (Settings), the message also includes the raw response body for triage.
 
 ### 6. Saved
 
@@ -142,11 +165,36 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
 - A "Change book" affordance is available from Capture and Review.
 - Settings is accessible from the Book selection screen via a gear icon.
 
+## Export targets
+
+`ExportTarget` is the user-facing enum (`readwise`, `notion`) that drives Settings cards, the onboarding "Pick targets" step, and the per-submission fan-out. Every target conforms to `HighlightDestination`:
+
+```swift
+protocol HighlightDestination {
+    var target: ExportTarget { get }
+    func submit(book: Book, highlights: [HighlightDraft]) async throws
+}
+```
+
+Submissions go through `HighlightSubmitter.submit(book:highlights:destinations:debugIncludesBody:)`, which runs each destination's `submit` concurrently inside a `TaskGroup` and aggregates the result into a `SubmissionResult`.
+
+### Notion
+
+- **Auth (OAuth).** Notion uses 3-legged OAuth, which means the client secret must never leave the server. The app talks to a tiny Cloudflare Worker (`cloudflare-workers/notion-oauth`) that holds `NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET` as wrangler secrets. The Worker exposes a single `POST /oauth/notion/exchange` endpoint that the iOS app calls after `ASWebAuthenticationSession` redirects back. The Worker proxies the exchange to `https://api.notion.com/v1/oauth/token` and returns Notion's response untouched.
+- The app launches the authorize URL with `client_id` (from `project.yml` → bundled into `Info.plist`), `response_type=code`, `owner=user`, the Worker's `redirect_uri`, and a per-attempt `state`. The custom URL scheme `notabene://oauth/notion/callback` is registered via `CFBundleURLTypes`.
+- A redirect with `error=access_denied` is mapped to `NotionOAuthError.userCancelled` (silently dismissed); any other `error=…` lands as `NotionOAuthError.providerError(code, description?)` with a toast.
+- **Persisted state.** A successful exchange yields a `NotionConnection { workspaceID, workspaceName?, workspaceIcon?, botID, parentPageID?, parentPageTitle?, bookPageCache, connectedAt }`. The connection is saved to `UserDefaults` (encoded JSON) and the access token to the Keychain under its own item. `NotionConnection.isFullyConfigured` is true only when `parentPageID != nil`, so a user who connects but never picks a parent page stays in `.setup`.
+- **Parent page picker.** `NotionClient.searchTopLevelPages()` calls `POST /v1/search` with `filter: page` and sorts results by last edited; the user picks one. The picked id + title are written into `NotionConnection.parentPageID` / `parentPageTitle`.
+- **Per-book page cache.** `NotionConnection.bookPageCache` is a `[bookID: pageID]` dictionary persisted alongside the rest of the connection, so subsequent submissions of the same book skip the "find or create" round-trip. A per-submission `NotionBookPageCache` actor mirrors this for the lifetime of a single Save (avoiding races inside a fan-out).
+- **Removing the connection.** `clearNotionConnection()` deletes the token from the Keychain, removes Notion from `enabledTargets`, and wipes the persisted `NotionConnection` (including the bookPageCache). Reconnecting starts from a clean slate.
+
 ## Data model
 
-- `Book`: `{ id, title, author?, source: "readwise" | "open_library" | "manual", lastUsedAt, coverURL? }`
-- `PendingHighlight` (in-memory only during a session): `{ book, images: [Data], highlights: [{ text, pageNumber? }] }`
-- Recently used books and the cached Readwise book list are persisted locally (Core Data, SwiftData, or a JSON file — implementer's choice).
+- `Book`: `{ id, title, author?, source: "readwise" | "open_library" | "manual", lastUsedAt, coverURL?, readwiseID? }`
+- `PendingHighlight` (in-memory only during a session): `{ book, images: [Data], highlights: [{ text, pageNumber?, note? }] }`
+- `ExportTarget`: `readwise` | `notion` — the set of targets the user has enabled is persisted in `UserDefaults` under `enabledExportTargets`. On first launch, if the user already had a Readwise key from an older build, Readwise is auto-migrated into `enabledExportTargets`.
+- `NotionConnection` (persisted as JSON in `UserDefaults`): `{ workspaceID, workspaceName?, workspaceIcon?, botID, parentPageID?, parentPageTitle?, bookPageCache: [bookID: pageID], connectedAt }`.
+- Recently used books and the cached Readwise book list are persisted locally (a JSON file in Application Support; see `BookStore`).
 
 ## Experimental features
 
@@ -163,9 +211,11 @@ Active flags:
 ## Error handling
 
 - Invalid provider (Gemini/Claude) key → block extraction, prompt the user to update the key in Settings (or switch to a provider whose key is set).
-- Invalid Readwise key → block submission, prompt the user to update the key in Settings.
+- Invalid Readwise key → submission to Readwise fails with `ReadwiseError.invalidToken`; the Saved/Review screen shows "Readwise token rejected — update it in Settings." If Notion is also enabled and succeeds, the user lands on Saved with one failure listed and the Readwise highlights not delivered.
+- Invalid Notion token (expired or revoked workspace install) → submission to Notion fails with `NotionError.invalidToken`; the message is "Notion access expired — reconnect in Settings."
 - Provider returns an empty highlights array → still proceed to Review with empty text and a small notice ("No highlight detected — type the passage manually").
-- Network failure on Readwise submit → stay on Review with retry; no automatic background queue in v1.
+- Network failure on any export target → that target lands in `SubmissionResult.failures`; the others may still succeed. Retry from Review re-runs the whole submission (see "5. Submit" idempotency caveat).
+- Disabling the last enabled+configured target from Settings is rejected with a toast — the app guarantees at least one active destination while in `.ready`.
 - Camera permission denied → show explanation with a "Open Settings" deep link.
 
 ## API integrations
@@ -176,6 +226,13 @@ Active flags:
   - `GET /api/v2/books/?category=books` — list user's books.
   - `POST /api/v2/highlights/` — create highlight(s).
   - `GET /api/v2/auth/` — validate token.
+- **Notion**: all calls use `Authorization: Bearer <access_token>` and the `Notion-Version: 2022-06-28` header.
+  - `GET /v1/users/me` — validate token (used by "Test connection" in Settings).
+  - `POST /v1/search` with `filter.value=page` — list candidate parent pages for the picker.
+  - `GET /v1/blocks/<parent>/children?page_size=100` (paginated) — search for an existing per-book child page by exact title.
+  - `POST /v1/pages` — create a per-book child page under the chosen parent.
+  - `PATCH /v1/blocks/<page>/children` — append `quote` + (optional) gray `paragraph` blocks.
+  - **OAuth via Cloudflare Worker.** Authorize URL is built client-side; the code-for-token exchange is `POST <WORKER>/oauth/notion/exchange` (the Worker injects `NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET` and forwards to `https://api.notion.com/v1/oauth/token`).
 - **Open Library**: `GET https://openlibrary.org/search.json` — book search for titles not in the user's Readwise library. No auth required.
 
 ## Libraries and dependencies
@@ -217,6 +274,9 @@ Active flags:
 - Tags or notes attached to highlights.
 - Offline queue with background retry.
 - Editing existing Readwise highlights.
+- Per-highlight deduplication on Notion (see "5. Submit" — find-or-create only dedupes the *book page*, not the individual quote blocks).
+- Selective per-target retry after a partial-failure Save (retry re-runs the whole submission).
+- Notion databases as a target (current implementation appends children blocks to a regular page; database/property mapping is a future improvement).
 - iPad layout, macOS Catalyst.
 - Sync of cached book list across devices.
 - Bulk import (multi-photo capture session).

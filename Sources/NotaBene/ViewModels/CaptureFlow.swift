@@ -61,6 +61,7 @@ public final class CaptureFlow: ObservableObject {
     @Published public var lastError: String?
     @Published public var didDetectEmptyHighlight: Bool = false
     @Published public var lastSavedHighlights: [EditableHighlight] = []
+    @Published public var targetSuccesses: Set<ExportTarget> = []
 
     public init(book: Book) {
         self.book = book
@@ -191,6 +192,7 @@ public final class CaptureFlow: ObservableObject {
         highlights = []
         didDetectEmptyHighlight = false
         lastError = nil
+        targetSuccesses = []
         stage = .capture
         if !keep {
             // Caller should swap the book.
@@ -203,7 +205,12 @@ public final class CaptureFlow: ObservableObject {
         highlights = []
         didDetectEmptyHighlight = false
         lastError = nil
+        targetSuccesses = []
         stage = .saved
+    }
+
+    public func markTargetSucceeded(_ target: ExportTarget) {
+        targetSuccesses.insert(target)
     }
 
     public var savableHighlights: [EditableHighlight] {

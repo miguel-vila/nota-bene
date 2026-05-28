@@ -21,13 +21,20 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Nota Bene
-        NSCameraUsageDescription: Photograph highlighted passages so they can be sent to Readwise.
-        NSPhotoLibraryUsageDescription: Select an existing photo of a highlighted passage to send to Readwise.
+        NSCameraUsageDescription: Photograph highlighted passages so they can be sent to your chosen export targets.
+        NSPhotoLibraryUsageDescription: Select an existing photo of a highlighted passage to send to your chosen export targets.
         UILaunchScreen: {}
         UIAppFonts:
           - Caveat-Regular.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        CFBundleURLTypes:
+          - CFBundleURLName: com.miguelvila.notabene.oauth
+            CFBundleURLSchemes:
+              - notabene
+        NotionClientID: "36ed872b-594c-81a3-9e0d-0037dbd7ffdb"
+        NotionWorkerBaseURL: "https://nota-bene-invariante.workers.dev"
+        NotionAppRedirectScheme: notabene://oauth/notion/callback
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.miguelvila.notabene

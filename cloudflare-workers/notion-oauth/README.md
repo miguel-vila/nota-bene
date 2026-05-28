@@ -18,6 +18,10 @@ holds the secret and exposes two endpoints the app talks to instead.
   configured secrets and forwards to `https://api.notion.com/v1/oauth/token`. Notion's
   response body and status are passed through unmodified.
 
+Both endpoints are gated by a per-endpoint, per-IP rate limit (`<path>:<cf-connecting-ip>`,
+30 requests / 60 seconds) configured via the `RATE_LIMITER` Workers Rate Limiting binding
+in `wrangler.jsonc`. Exceeding the limit returns `429` with a `Retry-After: 60` header.
+
 ## Local setup
 
 ```sh

@@ -2,6 +2,7 @@ interface Env {
   NOTION_CLIENT_ID: string;
   NOTION_CLIENT_SECRET: string;
   APP_REDIRECT_SCHEME: string;
+  RATE_LIMITER: RateLimit;
 }
 
 interface ExchangeRequest {
@@ -13,6 +14,27 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     try {
+      const ip = req.headers.get("cf-connecting-ip") ?? "unknown";
+      const { success } = await env.RATE_LIMITER.limit({
+        key: `${url.pathname}:${ip}`,
+      });
+      if (!success) {
+        console.log(
+          JSON.stringify({
+            level: "warn",
+            msg: "rate_limited",
+            path: url.pathname,
+          }),
+        );
+        return new Response(JSON.stringify({ error: "rate_limited" }), {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": "60",
+          },
+        });
+      }
+
       if (req.method === "GET" && url.pathname === "/oauth/notion/callback") {
         return handleCallback(url, env);
       }

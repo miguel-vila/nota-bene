@@ -4,14 +4,13 @@ import SwiftUI
 public struct SettingsView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
-    @State private var providerKeyInput = ""
-    @State private var readwiseInput = ""
     @State private var customModelInput = ""
     @State private var statusMessage: String?
     @State private var statusIsError: Bool = false
     @State private var testing: Bool = false
     @State private var testResult: TestResult?
     @State private var addKeyFor: LLMProvider?
+    @State private var showingReadwiseKeySheet: Bool = false
     @State private var toastMessage: String?
     @State private var notionWorking: Bool = false
     @State private var notionError: String?
@@ -73,6 +72,12 @@ public struct SettingsView: View {
             .sheet(item: $addKeyFor) { provider in
                 AddProviderKeyView(provider: provider) {
                     addKeyFor = nil
+                }
+                .environmentObject(state)
+            }
+            .sheet(isPresented: $showingReadwiseKeySheet) {
+                AddReadwiseTokenView {
+                    showingReadwiseKeySheet = false
                 }
                 .environmentObject(state)
             }
@@ -139,14 +144,13 @@ public struct SettingsView: View {
             SectionLabel("\(state.provider.label.uppercased()) · API KEY")
             ThemedCard {
                 VStack(spacing: 0) {
-                    settingsRow(
+                    editableKeyRow(
                         title: "Key",
-                        trailing: AnyView(
-                            Text(state.currentProviderKeyMasked.isEmpty ? "Not set" : state.currentProviderKeyMasked)
-                                .font(Theme.Typography.mono(13))
-                                .foregroundStyle(Theme.Palette.ink)
-                        )
-                    )
+                        valueMasked: state.currentProviderKeyMasked,
+                        emptyLabel: "Add key"
+                    ) {
+                        addKeyFor = state.provider
+                    }
                     divider
                     settingsRow(
                         title: "Test connection",
@@ -163,13 +167,8 @@ public struct SettingsView: View {
                     )
                 }
             }
-            VStack(spacing: 8) {
-                ThemedTextField("Replace key", text: $providerKeyInput, secure: true)
+            if !state.currentProviderKeyMasked.isEmpty {
                 HStack {
-                    Button("Save \(state.provider.label) key") { saveProviderKey() }
-                        .font(Theme.Typography.sans(13, weight: .medium))
-                        .foregroundStyle(providerKeyInput.isEmpty ? Theme.Palette.muted : Theme.Palette.ink)
-                        .disabled(providerKeyInput.isEmpty)
                     Spacer()
                     Button("Clear") { clearProviderKey() }
                         .font(Theme.Typography.sans(13, weight: .medium))
@@ -247,14 +246,13 @@ public struct SettingsView: View {
             )
             ThemedCard {
                 VStack(spacing: 0) {
-                    settingsRow(
+                    editableKeyRow(
                         title: "Token",
-                        trailing: AnyView(
-                            Text(state.readwiseKeyMasked.isEmpty ? "Not set" : state.readwiseKeyMasked)
-                                .font(Theme.Typography.mono(13))
-                                .foregroundStyle(Theme.Palette.ink)
-                        )
-                    )
+                        valueMasked: state.readwiseKeyMasked,
+                        emptyLabel: "Add token"
+                    ) {
+                        showingReadwiseKeySheet = true
+                    }
                     if state.isTargetConfigured(.readwise) {
                         divider
                         settingsRow(
@@ -273,25 +271,12 @@ public struct SettingsView: View {
                     }
                 }
             }
-            VStack(spacing: 8) {
-                ThemedTextField(
-                    state.isTargetConfigured(.readwise) ? "Replace token" : "Paste Readwise token",
-                    text: $readwiseInput,
-                    secure: true
-                )
+            if state.isTargetConfigured(.readwise) {
                 HStack {
-                    Button(state.isTargetConfigured(.readwise) ? "Save Readwise token" : "Save and enable") {
-                        saveReadwise()
-                    }
-                    .font(Theme.Typography.sans(13, weight: .medium))
-                    .foregroundStyle(readwiseInput.isEmpty ? Theme.Palette.muted : Theme.Palette.ink)
-                    .disabled(readwiseInput.isEmpty)
                     Spacer()
-                    if state.isTargetConfigured(.readwise) {
-                        Button("Clear") { clearReadwise() }
-                            .font(Theme.Typography.sans(13, weight: .medium))
-                            .foregroundStyle(Theme.Palette.danger)
-                    }
+                    Button("Clear") { clearReadwise() }
+                        .font(Theme.Typography.sans(13, weight: .medium))
+                        .foregroundStyle(Theme.Palette.danger)
                 }
             }
         }
@@ -468,6 +453,31 @@ public struct SettingsView: View {
         .padding(.vertical, 10)
     }
 
+    private func editableKeyRow(
+        title: String,
+        valueMasked: String,
+        emptyLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack {
+                Text(title)
+                    .font(Theme.Typography.sans(14))
+                    .foregroundStyle(Theme.Palette.inkSoft)
+                Spacer()
+                Text(valueMasked.isEmpty ? emptyLabel : valueMasked)
+                    .font(valueMasked.isEmpty ? Theme.Typography.sans(13, weight: .medium) : Theme.Typography.mono(13))
+                    .foregroundStyle(valueMasked.isEmpty ? Theme.Palette.inkSoft : Theme.Palette.ink)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.muted)
+            }
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     private var divider: some View {
         Rectangle().fill(Theme.Palette.lineSoft).frame(height: 1)
     }
@@ -548,7 +558,6 @@ public struct SettingsView: View {
         guard state.provider != provider else { return }
         if hasKey(for: provider) {
             state.provider = provider
-            providerKeyInput = ""
             customModelInput = ""
         } else {
             addKeyFor = provider
@@ -566,29 +575,6 @@ public struct SettingsView: View {
         let trimmed = customModelInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         state.setCurrentModel(trimmed)
-    }
-
-    private func saveProviderKey() {
-        do {
-            try state.saveCurrentProviderKey(providerKeyInput)
-            providerKeyInput = ""
-            setStatus("Saved.", isError: false)
-        } catch {
-            setStatus(error.localizedDescription, isError: true)
-        }
-    }
-
-    private func saveReadwise() {
-        do {
-            try state.saveReadwiseKey(readwiseInput)
-            readwiseInput = ""
-            if !state.enabledTargets.contains(.readwise) {
-                state.enableTarget(.readwise)
-            }
-            setStatus("Saved.", isError: false)
-        } catch {
-            setStatus(error.localizedDescription, isError: true)
-        }
     }
 
     private func clearReadwise() {
@@ -1012,13 +998,20 @@ struct AddProviderKeyView: View {
     @State private var valid: Bool = false
     @State private var error: String?
 
+    private var isReplacing: Bool {
+        switch provider {
+        case .gemini: return !state.geminiKeyMasked.isEmpty
+        case .claude: return !state.claudeKeyMasked.isEmpty
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 Theme.Palette.bg.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Your \(provider.label) key.")
+                        Text(isReplacing ? "Replace your \(provider.label) key." : "Your \(provider.label) key.")
                             .font(Theme.Typography.serif(28))
                             .kerning(-0.6)
                             .lineSpacing(2)
@@ -1052,7 +1045,7 @@ struct AddProviderKeyView: View {
                         }
 
                         Button(action: save) {
-                            Text("Save and switch to \(provider.label)")
+                            Text(isReplacing ? "Replace \(provider.label) key" : "Save \(provider.label) key")
                         }
                         .buttonStyle(PrimaryButtonStyle(enabled: valid))
                         .disabled(!valid)
@@ -1068,7 +1061,7 @@ struct AddProviderKeyView: View {
                         .foregroundStyle(Theme.Palette.inkSoft)
                 }
                 ToolbarItem(placement: .principal) {
-                    Text("Add \(provider.label) key")
+                    Text(isReplacing ? "Replace \(provider.label) key" : "Add \(provider.label) key")
                         .font(Theme.Typography.sans(15, weight: .semibold))
                         .foregroundStyle(Theme.Palette.ink)
                 }
@@ -1104,6 +1097,104 @@ struct AddProviderKeyView: View {
             case .claude: try state.saveClaudeKey(key)
             }
             state.provider = provider
+            onDone()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Add Readwise token (focused, single-step)
+
+struct AddReadwiseTokenView: View {
+    @EnvironmentObject private var state: AppState
+    let onDone: () -> Void
+
+    @State private var token: String = ""
+    @State private var valid: Bool = false
+    @State private var error: String?
+
+    private var isReplacing: Bool {
+        !state.readwiseKeyMasked.isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.Palette.bg.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(isReplacing ? "Replace your Readwise token." : "Your Readwise token.")
+                            .font(Theme.Typography.serif(28))
+                            .kerning(-0.6)
+                            .lineSpacing(2)
+                            .foregroundStyle(Theme.Palette.ink)
+                            .padding(.top, 8)
+
+                        Text("Used only to send extracted highlights to your Readwise account.")
+                            .font(Theme.Typography.serif(15))
+                            .foregroundStyle(Theme.Palette.inkSoft)
+                            .lineSpacing(2)
+                            .padding(.top, 10)
+
+                        KeyField(
+                            label: "Readwise token",
+                            hint: "readwise.io → Access Token",
+                            hintURL: URL(string: "https://readwise.io/access_token"),
+                            value: $token,
+                            valid: valid
+                        )
+                        .padding(.top, 22)
+                        .onChange(of: token) { _, _ in revalidate() }
+
+                        PrivacyNotice()
+                            .padding(.top, 16)
+
+                        if let error {
+                            Text(error)
+                                .font(Theme.Typography.sans(13))
+                                .foregroundStyle(Theme.Palette.danger)
+                                .padding(.top, 12)
+                        }
+
+                        Button(action: save) {
+                            Text(isReplacing ? "Replace Readwise token" : "Save Readwise token")
+                        }
+                        .buttonStyle(PrimaryButtonStyle(enabled: valid))
+                        .disabled(!valid)
+                        .padding(.top, 24)
+                    }
+                    .padding(.horizontal, Theme.Layout.setupPadding)
+                    .padding(.bottom, 32)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") { onDone() }
+                        .foregroundStyle(Theme.Palette.inkSoft)
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(isReplacing ? "Replace Readwise token" : "Add Readwise token")
+                        .font(Theme.Typography.sans(15, weight: .semibold))
+                        .foregroundStyle(Theme.Palette.ink)
+                }
+            }
+            .toolbarBackground(Theme.Palette.bg, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
+        .onAppear { revalidate() }
+    }
+
+    private func revalidate() {
+        valid = SetupValidation.looksLikeReadwiseToken(token)
+    }
+
+    private func save() {
+        do {
+            try state.saveReadwiseKey(token)
+            if !state.enabledTargets.contains(.readwise) {
+                state.enableTarget(.readwise)
+            }
             onDone()
         } catch {
             self.error = error.localizedDescription

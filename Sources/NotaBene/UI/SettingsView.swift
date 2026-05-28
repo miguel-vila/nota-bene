@@ -7,7 +7,9 @@ public struct SettingsView: View {
     @State private var customModelInput = ""
     @State private var statusMessage: String?
     @State private var statusIsError: Bool = false
-    @State private var testing: Bool = false
+    @State private var testingProvider: Bool = false
+    @State private var testingReadwise: Bool = false
+    @State private var testingNotion: Bool = false
     @State private var testResult: TestResult?
     @State private var addKeyFor: LLMProvider?
     @State private var showingReadwiseKeySheet: Bool = false
@@ -158,11 +160,11 @@ public struct SettingsView: View {
                             Button {
                                 Task { await testProvider() }
                             } label: {
-                                Text(testing ? "Testing…" : "Test")
+                                Text(testingProvider ? "Testing…" : "Test")
                                     .font(Theme.Typography.sans(13, weight: .medium))
                                     .foregroundStyle(state.currentProviderKeyMasked.isEmpty ? Theme.Palette.muted : Theme.Palette.inkSoft)
                             }
-                            .disabled(state.currentProviderKeyMasked.isEmpty || testing)
+                            .disabled(state.currentProviderKeyMasked.isEmpty || testingProvider)
                         )
                     )
                 }
@@ -261,11 +263,11 @@ public struct SettingsView: View {
                                 Button {
                                     Task { await testReadwise() }
                                 } label: {
-                                    Text(testing ? "Testing…" : "Test")
+                                    Text(testingReadwise ? "Testing…" : "Test")
                                         .font(Theme.Typography.sans(13, weight: .medium))
                                         .foregroundStyle(Theme.Palette.inkSoft)
                                 }
-                                .disabled(testing)
+                                .disabled(testingReadwise)
                             )
                         )
                     }
@@ -328,11 +330,11 @@ public struct SettingsView: View {
                                     Button {
                                         Task { await testNotion() }
                                     } label: {
-                                        Text(testing ? "Testing…" : "Test")
+                                        Text(testingNotion ? "Testing…" : "Test")
                                             .font(Theme.Typography.sans(13, weight: .medium))
                                             .foregroundStyle(Theme.Palette.inkSoft)
                                     }
-                                    .disabled(testing)
+                                    .disabled(testingNotion)
                                 )
                             )
                         }
@@ -668,8 +670,8 @@ public struct SettingsView: View {
 
     private func testProvider() async {
         guard let extractor = state.currentExtractor() else { return }
-        testing = true
-        defer { testing = false }
+        testingProvider = true
+        defer { testingProvider = false }
         let pixel = Data([
             0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A,0x00,0x00,0x00,0x0D,
             0x49,0x48,0x44,0x52,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x01,
@@ -712,8 +714,8 @@ public struct SettingsView: View {
 
     private func testReadwise() async {
         guard let client = state.currentReadwiseClient() else { return }
-        testing = true
-        defer { testing = false }
+        testingReadwise = true
+        defer { testingReadwise = false }
         do {
             let ok = try await client.validateToken()
             showTestResult(
@@ -735,8 +737,8 @@ public struct SettingsView: View {
 
     private func testNotion() async {
         guard let client = state.currentNotionClient() else { return }
-        testing = true
-        defer { testing = false }
+        testingNotion = true
+        defer { testingNotion = false }
         do {
             let ok = try await client.validateToken()
             showTestResult(

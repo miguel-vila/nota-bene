@@ -33,7 +33,7 @@ targets:
             CFBundleURLSchemes:
               - notabene
         NotionClientID: "36ed872b-594c-81a3-9e0d-0037dbd7ffdb"
-        NotionWorkerBaseURL: "https://nota-bene-invariante.workers.dev"
+        NotionWorkerBaseURL: "https://notabene-oauth.nota-bene-invariante.workers.dev"
         NotionAppRedirectScheme: notabene://oauth/notion/callback
     settings:
       base:

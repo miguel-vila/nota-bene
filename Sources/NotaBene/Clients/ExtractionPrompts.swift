@@ -1,8 +1,111 @@
 import Foundation
 
 public enum ExtractionPrompts {
+    /// Identifier for the single-page request template (prompt text + Claude
+    /// tool schema + Gemini response schema + everything else stored in the
+    /// `request_templates/<provider>-single-<version>.json` file).
+    ///
+    /// **Bump this** whenever you change any of:
+    /// - `singlePagePrompt` or any constant it interpolates
+    ///   (`framingGuidance`, `markStylesGuidance`, `notesGuidance`).
+    /// - `Claude.userTextInstruction`, `Claude.toolDescription`,
+    ///   `Claude.toolName`, `Claude.maxTokens`, `Claude.anthropicVersion`.
+    /// - `ClaudeHighlightSchema.inputSchema`.
+    /// - `Gemini.responseMimeType`, `Gemini.responseSchema`.
+    ///
+    /// The eval-sample writer hash-checks the in-memory template against the
+    /// on-disk file and crashes if they differ — a forgotten bump is loud.
+    public static let singleExtractionVersion = "v1"
+
+    /// Identifier for the multi-page request template. Same bump rules as
+    /// `singleExtractionVersion` but applied to `multiPagePrompt` and the
+    /// multi-variant template contents.
+    public static let multiExtractionVersion = "v1"
+
     public static func defaultPrompt(forPageCount count: Int) -> String {
         count > 1 ? multiPagePrompt : singlePagePrompt
+    }
+
+    public static func variantName(forPageCount count: Int) -> String {
+        count > 1 ? "multi" : "single"
+    }
+
+    public static func extractionVersion(forPageCount count: Int) -> String {
+        count > 1 ? multiExtractionVersion : singleExtractionVersion
+    }
+
+    // MARK: - Claude template
+
+    /// Provider-specific constants used by `ClaudeClient.makeBody` and the
+    /// eval-sample writer. Kept in `ExtractionPrompts` so there is a single
+    /// source of truth for what is "the prompt" from the model's perspective.
+    public enum Claude {
+        public static let toolName = "report_highlights"
+        public static let maxTokens = 4096
+        public static let anthropicVersion = "2023-06-01"
+
+        public static let toolDescription = "Report the highlighted passages extracted from the photographed pages. The `highlights` field MUST be a JSON array of objects (not a JSON-encoded string). Quotation marks inside any `text` value should appear as ordinary characters; do not pre-escape them."
+
+        public static let userTextInstruction = """
+        Extract the highlighted passages from the attached page(s) and report them via the \(toolName) tool.
+
+        Pass the highlights field as a real JSON array of objects in the tool input — do not encode the array as a JSON string. Each text value may itself contain double quotes; include them as ordinary characters inside the string (the JSON serializer will escape them). Do not pre-escape, double-escape, or wrap the array in extra quotes.
+        """
+
+        /// Builds the request-template dictionary written to
+        /// `request_templates/claude-<variant>-<version>.json`. Stores
+        /// **everything the model sees** except the images themselves.
+        public static func requestTemplate(forPageCount count: Int) -> [String: Any] {
+            [
+                "provider": "claude",
+                "variant": ExtractionPrompts.variantName(forPageCount: count),
+                "version": ExtractionPrompts.extractionVersion(forPageCount: count),
+                "system": ExtractionPrompts.defaultPrompt(forPageCount: count),
+                "user_text_instruction": userTextInstruction,
+                "tool_name": toolName,
+                "tool_description": toolDescription,
+                "tool_input_schema": ClaudeHighlightSchema.inputSchema,
+                "tool_choice": ["type": "tool", "name": toolName],
+                "max_tokens": maxTokens,
+                "anthropic_version": anthropicVersion,
+            ]
+        }
+    }
+
+    // MARK: - Gemini template
+
+    public enum Gemini {
+        public static let responseMimeType = "application/json"
+
+        public static let responseSchema: [String: Any] = [
+            "type": "object",
+            "properties": [
+                "highlights": [
+                    "type": "array",
+                    "items": [
+                        "type": "object",
+                        "properties": [
+                            "text": ["type": "string"],
+                            "page_number": ["type": "integer", "nullable": true],
+                            "note": ["type": "string", "nullable": true],
+                        ],
+                        "required": ["text"],
+                    ],
+                ],
+            ],
+            "required": ["highlights"],
+        ]
+
+        public static func requestTemplate(forPageCount count: Int) -> [String: Any] {
+            [
+                "provider": "gemini",
+                "variant": ExtractionPrompts.variantName(forPageCount: count),
+                "version": ExtractionPrompts.extractionVersion(forPageCount: count),
+                "instruction": ExtractionPrompts.defaultPrompt(forPageCount: count),
+                "response_mime_type": responseMimeType,
+                "response_schema": responseSchema,
+            ]
+        }
     }
 
     public static let framingGuidance = """

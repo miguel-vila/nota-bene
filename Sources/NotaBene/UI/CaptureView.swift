@@ -48,6 +48,7 @@ public struct CaptureFlowContainer: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar(.hidden, for: .navigationBar)
+        .evalRecordingBadge()
     }
 
     private func runExtraction() async {
@@ -61,8 +62,11 @@ public struct CaptureFlowContainer: View {
             return
         }
         do {
-            let result = try await extractor.extractHighlights(fromImages: flow.images, mimeType: "image/jpeg")
-            flow.applyExtraction(result)
+            let trace = try await extractor.extractWithTrace(fromImages: flow.images, mimeType: "image/jpeg")
+            #if EVAL_CAPTURE
+            await maybeWriteEvalSample(trace: trace)
+            #endif
+            flow.applyExtraction(trace.result)
         } catch ExtractionError.invalidKey {
             flow.failExtraction("\(providerLabel) key rejected — update it in Settings.")
         } catch ExtractionError.requestFailed(let status, let body) {
@@ -152,6 +156,48 @@ public struct CaptureFlowContainer: View {
             flow.stage = .review
         }
     }
+
+    #if EVAL_CAPTURE
+    private func maybeWriteEvalSample(trace: ExtractionTrace) async {
+        let enabled = UserDefaults.standard.bool(forKey: EvalPreferenceKey.evalCaptureEnabled)
+        guard enabled else { return }
+        let provider = state.provider
+        let model = state.currentModel
+        let book = flow.book
+        let images = flow.images
+        let info = Bundle.main.infoDictionary
+        let appVersion = (info?["CFBundleShortVersionString"] as? String) ?? "0.0"
+        let appBuild = (info?["CFBundleVersion"] as? String) ?? "0"
+        let platform = "iOS \(UIDevice.current.systemVersion)"
+        let deviceModel = Self.hardwareModel()
+        do {
+            try await EvalSampleWriter.shared.writeSample(
+                trace: trace,
+                images: images,
+                provider: provider,
+                model: model,
+                book: book,
+                appVersion: appVersion,
+                appBuild: appBuild,
+                platform: platform,
+                deviceModel: deviceModel
+            )
+        } catch {
+            // Eval capture is a dev tool — surface in console, never block the
+            // capture flow. The Settings → Developer footer shows last-write
+            // status so the developer can still notice.
+            print("[eval-capture] sample write failed: \(error)")
+        }
+    }
+
+    private static func hardwareModel() -> String {
+        var sys = utsname()
+        uname(&sys)
+        return withUnsafePointer(to: &sys.machine) { ptr -> String in
+            ptr.withMemoryRebound(to: CChar.self, capacity: Int(_SYS_NAMELEN)) { String(cString: $0) }
+        }
+    }
+    #endif
 }
 
 // MARK: - Capture screen

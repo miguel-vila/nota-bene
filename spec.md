@@ -207,6 +207,7 @@ Active flags:
   - **Page number** keeps the upper highlight's value when present, otherwise falls back to the lower one's.
   - **Note** is concatenated as `<upper>\n\n<lower>` (each side trimmed; if either side is empty the other is kept verbatim).
   - The lower highlight is removed and the upper highlight's identity is preserved so the user's editing focus stays put.
+- **Capture eval samples** (DEBUG builds only) — persists each successful Extraction round-trip (images + raw/parsed model response + prompt version + model id) to `EvalSamples/` for off-device labeling and regression eval. Exposed only under `#if DEBUG`, off by default, compiled out of release binaries. See [docs/eval-capture.md](docs/eval-capture.md) for the full sub-spec.
 
 ## Error handling
 

@@ -40,12 +40,17 @@ public actor GeminiClient: HighlightExtractor {
         self.baseURL = baseURL
     }
 
-    public func extractHighlights(
+    public func extractWithTrace(
         fromImages images: [Data],
         mimeType: String = "image/jpeg"
-    ) async throws -> ExtractionResult {
+    ) async throws -> ExtractionTrace {
         guard !images.isEmpty else {
-            return ExtractionResult(highlights: [])
+            return ExtractionTrace(
+                result: ExtractionResult(highlights: []),
+                rawResponseBody: "",
+                latencyMillis: 0,
+                requestMime: mimeType
+            )
         }
         let resolvedPrompt = Self.defaultPrompt(forPageCount: images.count)
         let url = baseURL.appendingPathComponent("models/\(model):generateContent")
@@ -55,7 +60,9 @@ public actor GeminiClient: HighlightExtractor {
         request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.httpBody = try Self.makeBody(images: images, mimeType: mimeType, prompt: resolvedPrompt)
 
+        let startNanos = DispatchTime.now().uptimeNanoseconds
         let (data, response) = try await http.data(for: request)
+        let latencyMillis = Int((DispatchTime.now().uptimeNanoseconds - startNanos) / 1_000_000)
         guard let resp = response as? HTTPURLResponse else {
             throw ExtractionError.requestFailed(status: -1, body: "no response")
         }
@@ -66,7 +73,13 @@ public actor GeminiClient: HighlightExtractor {
             let body = String(data: data, encoding: .utf8) ?? ""
             throw ExtractionError.requestFailed(status: resp.statusCode, body: body)
         }
-        return try Self.parseResponse(data)
+        let parsed = try Self.parseResponse(data)
+        return ExtractionTrace(
+            result: parsed,
+            rawResponseBody: String(data: data, encoding: .utf8) ?? "",
+            latencyMillis: latencyMillis,
+            requestMime: mimeType
+        )
     }
 
     public static func makeBody(images: [Data], mimeType: String, prompt: String) throws -> Data {
@@ -81,25 +94,8 @@ public actor GeminiClient: HighlightExtractor {
         let body: [String: Any] = [
             "contents": [["parts": parts]],
             "generationConfig": [
-                "responseMimeType": "application/json",
-                "responseSchema": [
-                    "type": "object",
-                    "properties": [
-                        "highlights": [
-                            "type": "array",
-                            "items": [
-                                "type": "object",
-                                "properties": [
-                                    "text": ["type": "string"],
-                                    "page_number": ["type": "integer", "nullable": true],
-                                    "note": ["type": "string", "nullable": true]
-                                ],
-                                "required": ["text"]
-                            ]
-                        ]
-                    ],
-                    "required": ["highlights"]
-                ]
+                "responseMimeType": ExtractionPrompts.Gemini.responseMimeType,
+                "responseSchema": ExtractionPrompts.Gemini.responseSchema,
             ]
         ]
         return try JSONSerialization.data(withJSONObject: body)

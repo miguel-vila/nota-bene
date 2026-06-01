@@ -37,6 +37,9 @@ public struct SettingsView: View {
                         exportTargetsGroup
                         experimentalSection
                         debugSection
+                        #if EVAL_CAPTURE
+                        developerSection
+                        #endif
                         if let statusMessage {
                             Text(statusMessage)
                                 .font(Theme.Typography.sans(13))

@@ -2,9 +2,9 @@ import Foundation
 
 public actor ClaudeClient: HighlightExtractor {
     public static let defaultModel = "claude-sonnet-4-6"
-    public static let apiVersion = "2023-06-01"
-    public static let maxTokens = 4096
-    public static let toolName = "report_highlights"
+    public static let apiVersion = ExtractionPrompts.Claude.anthropicVersion
+    public static let maxTokens = ExtractionPrompts.Claude.maxTokens
+    public static let toolName = ExtractionPrompts.Claude.toolName
 
     public enum ModelPreset: String, CaseIterable, Identifiable, Sendable {
         case sonnet = "claude-sonnet-4-6"
@@ -39,12 +39,17 @@ public actor ClaudeClient: HighlightExtractor {
         self.baseURL = baseURL
     }
 
-    public func extractHighlights(
+    public func extractWithTrace(
         fromImages images: [Data],
         mimeType: String = "image/jpeg"
-    ) async throws -> ExtractionResult {
+    ) async throws -> ExtractionTrace {
         guard !images.isEmpty else {
-            return ExtractionResult(highlights: [])
+            return ExtractionTrace(
+                result: ExtractionResult(highlights: []),
+                rawResponseBody: "",
+                latencyMillis: 0,
+                requestMime: mimeType
+            )
         }
         let prompt = ExtractionPrompts.defaultPrompt(forPageCount: images.count)
         let url = baseURL.appendingPathComponent("messages")
@@ -60,7 +65,9 @@ public actor ClaudeClient: HighlightExtractor {
             systemPrompt: prompt
         )
 
+        let startNanos = DispatchTime.now().uptimeNanoseconds
         let (data, response) = try await http.data(for: request)
+        let latencyMillis = Int((DispatchTime.now().uptimeNanoseconds - startNanos) / 1_000_000)
         guard let resp = response as? HTTPURLResponse else {
             throw ExtractionError.requestFailed(status: -1, body: "no response")
         }
@@ -71,7 +78,13 @@ public actor ClaudeClient: HighlightExtractor {
             let body = String(data: data, encoding: .utf8) ?? ""
             throw ExtractionError.requestFailed(status: resp.statusCode, body: body)
         }
-        return try Self.parseResponse(data)
+        let parsed = try Self.parseResponse(data)
+        return ExtractionTrace(
+            result: parsed,
+            rawResponseBody: String(data: data, encoding: .utf8) ?? "",
+            latencyMillis: latencyMillis,
+            requestMime: mimeType
+        )
     }
 
     public static func makeBody(
@@ -92,11 +105,7 @@ public actor ClaudeClient: HighlightExtractor {
         }
         content.append([
             "type": "text",
-            "text": """
-            Extract the highlighted passages from the attached page(s) and report them via the \(toolName) tool.
-
-            Pass the highlights field as a real JSON array of objects in the tool input — do not encode the array as a JSON string. Each text value may itself contain double quotes; include them as ordinary characters inside the string (the JSON serializer will escape them). Do not pre-escape, double-escape, or wrap the array in extra quotes.
-            """
+            "text": ExtractionPrompts.Claude.userTextInstruction
         ])
 
         let body: [String: Any] = [
@@ -105,7 +114,7 @@ public actor ClaudeClient: HighlightExtractor {
             "system": systemPrompt,
             "tools": [[
                 "name": toolName,
-                "description": "Report the highlighted passages extracted from the photographed pages. The `highlights` field MUST be a JSON array of objects (not a JSON-encoded string). Quotation marks inside any `text` value should appear as ordinary characters; do not pre-escape them.",
+                "description": ExtractionPrompts.Claude.toolDescription,
                 "input_schema": ClaudeHighlightSchema.inputSchema
             ]],
             "tool_choice": ["type": "tool", "name": toolName],

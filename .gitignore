@@ -6,3 +6,13 @@ DerivedData/
 xcuserdata/
 .DS_Store
 design_handoff_highlight_capture/
+
+# Eval-capture (DEBUG-only feature) — see docs/eval-capture.md
+EvalSamples/
+eval-samples-*.zip
+
+# Local tool caches (Claude Code, agents, BMad, codex session state)
+.agents/
+.claude/
+.context/
+_bmad/

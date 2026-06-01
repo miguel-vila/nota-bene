@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Pre-commit hook: runs `swift test` in both compilation-flag states so
+# EVAL_CAPTURE-gated code doesn't rot silently.
+#
+# Install by running: ./scripts/git-hooks/install.sh
+#
+# Skip the hook for a single commit with: git commit --no-verify
+# (don't make a habit of it.)
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Only run tests when Swift sources / Package files actually changed.
+# Saves ~5s on docs-only commits.
+if ! git diff --cached --name-only | grep -qE '\.swift$|^Package\.swift$|^Package\.resolved$'; then
+  echo "[pre-commit] no Swift changes staged, skipping tests"
+  exit 0
+fi
+
+echo "[pre-commit] swift test (default flags)"
+if ! swift test --quiet; then
+  echo ""
+  echo "[pre-commit] tests FAILED in default-flag build — aborting commit."
+  exit 1
+fi
+
+echo "[pre-commit] swift test -DEVAL_CAPTURE -DDEBUG"
+if ! swift test --quiet -Xswiftc -DEVAL_CAPTURE -Xswiftc -DDEBUG; then
+  echo ""
+  echo "[pre-commit] tests FAILED with EVAL_CAPTURE flag — aborting commit."
+  echo "[pre-commit] EVAL_CAPTURE-gated code rotted? See docs/eval-capture.md."
+  exit 1
+fi
+
+echo "[pre-commit] both flag states OK"

@@ -1,45 +1,46 @@
 #!/usr/bin/env bash
-# Fails the build if the EVAL_CAPTURE compilation condition is ever present in
-# the Release configuration. EVAL_CAPTURE gates the on-device eval-sample
-# writer (see docs/eval-capture.md) and must never ship outside DEBUG builds.
+# Asserts that the EVAL_CAPTURE compilation condition is gated on the Debug
+# build configuration in Package.swift and is never unconditionally defined.
+# Catches both:
+#   1. Someone replacing `.define("EVAL_CAPTURE", .when(configuration: .debug))`
+#      with a bare `.define("EVAL_CAPTURE")` (would ship in Release).
+#   2. Someone adding `.when(configuration: .release)` (would ship in Release).
 #
-# Wire as a required step before any release-archive job.
+# Wire as a required step before any release-archive job — see
+# .github/workflows/ci.yml.
 set -euo pipefail
 
-if ! command -v xcodebuild >/dev/null 2>&1; then
-  echo "[check_no_eval_capture_in_release] xcodebuild not found — skipping (non-mac CI?)"
-  exit 0
-fi
-
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+PKG="${REPO_ROOT}/Package.swift"
 
-if [ ! -f "${REPO_ROOT}/NotaBene.xcodeproj/project.pbxproj" ]; then
-  if [ ! -f "${REPO_ROOT}/ReadwiseHighlighter.xcodeproj/project.pbxproj" ]; then
-    echo "[check_no_eval_capture_in_release] no .xcodeproj found at repo root — run 'xcodegen generate' first"
-    exit 1
-  fi
-fi
-
-cd "${REPO_ROOT}"
-
-PROJECT_FLAG=""
-if [ -d "NotaBene.xcodeproj" ]; then
-  PROJECT_FLAG="-project NotaBene.xcodeproj"
-elif [ -d "ReadwiseHighlighter.xcodeproj" ]; then
-  PROJECT_FLAG="-project ReadwiseHighlighter.xcodeproj"
-fi
-
-# shellcheck disable=SC2086
-SETTINGS=$(xcodebuild ${PROJECT_FLAG} -configuration Release -showBuildSettings 2>/dev/null || true)
-
-if echo "${SETTINGS}" | grep -E "SWIFT_ACTIVE_COMPILATION_CONDITIONS\s*=.*EVAL_CAPTURE" >/dev/null; then
-  echo ""
-  echo "FAIL: EVAL_CAPTURE found in SWIFT_ACTIVE_COMPILATION_CONDITIONS for Release config."
-  echo "      This flag must only be defined for the Debug configuration."
-  echo "      See project.yml and docs/eval-capture.md."
-  echo ""
-  echo "${SETTINGS}" | grep "SWIFT_ACTIVE_COMPILATION_CONDITIONS" || true
+if [ ! -f "${PKG}" ]; then
+  echo "[check_no_eval_capture_in_release] Package.swift not found at ${PKG}"
   exit 1
 fi
 
-echo "[check_no_eval_capture_in_release] OK — EVAL_CAPTURE not present in Release build."
+# 1. EVAL_CAPTURE must be defined exactly once, with a .when(configuration: .debug) guard.
+EXPECTED='.define("EVAL_CAPTURE", .when(configuration: .debug))'
+if ! grep -F -- "${EXPECTED}" "${PKG}" >/dev/null; then
+  echo "FAIL: expected the exact form in Package.swift:"
+  echo "      ${EXPECTED}"
+  echo "      Current EVAL_CAPTURE-related lines:"
+  grep -n "EVAL_CAPTURE" "${PKG}" || echo "      (none)"
+  exit 1
+fi
+
+# 2. No other EVAL_CAPTURE define forms allowed.
+DEFINE_COUNT=$(grep -c '\.define("EVAL_CAPTURE"' "${PKG}" || true)
+if [ "${DEFINE_COUNT}" != "1" ]; then
+  echo "FAIL: Package.swift has ${DEFINE_COUNT} .define(\"EVAL_CAPTURE\" …) entries; expected exactly 1."
+  grep -n 'EVAL_CAPTURE' "${PKG}"
+  exit 1
+fi
+
+# 3. Nothing should mention .release configuration for EVAL_CAPTURE.
+if grep -E 'EVAL_CAPTURE.*\.release|\.release.*EVAL_CAPTURE' "${PKG}" >/dev/null; then
+  echo "FAIL: Package.swift mentions .release configuration for EVAL_CAPTURE."
+  grep -n 'EVAL_CAPTURE' "${PKG}"
+  exit 1
+fi
+
+echo "[check_no_eval_capture_in_release] OK — Package.swift gates EVAL_CAPTURE to Debug only."

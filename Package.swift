@@ -19,7 +19,14 @@ let package = Package(
             dependencies: [
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
-            path: "Sources/NotaBene"
+            path: "Sources/NotaBene",
+            swiftSettings: [
+                // EVAL_CAPTURE is auto-on in Debug builds (Xcode's Debug
+                // config, `swift build`, `swift test`) and auto-off in Release
+                // (Xcode's Release config, `swift build -c release`, archive).
+                // No manual Xcode setting required — see docs/eval-capture.md.
+                .define("EVAL_CAPTURE", .when(configuration: .debug)),
+            ]
         ),
         .testTarget(
             name: "NotaBeneTests",

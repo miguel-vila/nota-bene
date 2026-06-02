@@ -34,11 +34,12 @@ jobs:
           restore-keys: |
             spm-${{ runner.os }}-
 
-      - name: swift test (default flags)
+      # EVAL_CAPTURE is on in Debug (default), off in Release — see Package.swift.
+      - name: swift test (Debug — EVAL_CAPTURE on)
         run: swift test
 
-      - name: swift test (EVAL_CAPTURE + DEBUG)
-        run: swift test -Xswiftc -DEVAL_CAPTURE -Xswiftc -DDEBUG
+      - name: swift test (Release — EVAL_CAPTURE off)
+        run: swift test -c release
 
   eval-capture-release-guard:
     name: EVAL_CAPTURE absent from Release build
@@ -48,12 +49,6 @@ jobs:
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-
-      - name: Install xcodegen
-        run: brew install xcodegen
-
-      - name: Regenerate Xcode project from project.yml
-        run: xcodegen generate
 
       - name: Run release-config guard
         run: ./scripts/ci/check_no_eval_capture_in_release.sh

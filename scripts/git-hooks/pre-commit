@@ -19,19 +19,22 @@ if ! git diff --cached --name-only | grep -qE '\.swift$|^Package\.swift$|^Packag
   exit 0
 fi
 
-echo "[pre-commit] swift test (default flags)"
+# EVAL_CAPTURE is auto-on in Debug, off in Release (see Package.swift).
+# Running both configurations exercises both code paths.
+
+echo "[pre-commit] swift test (Debug — EVAL_CAPTURE on)"
 if ! swift test --quiet; then
   echo ""
-  echo "[pre-commit] tests FAILED in default-flag build — aborting commit."
+  echo "[pre-commit] tests FAILED in Debug build — aborting commit."
   exit 1
 fi
 
-echo "[pre-commit] swift test -DEVAL_CAPTURE -DDEBUG"
-if ! swift test --quiet -Xswiftc -DEVAL_CAPTURE -Xswiftc -DDEBUG; then
+echo "[pre-commit] swift test -c release (Release — EVAL_CAPTURE off)"
+if ! swift test --quiet -c release; then
   echo ""
-  echo "[pre-commit] tests FAILED with EVAL_CAPTURE flag — aborting commit."
-  echo "[pre-commit] EVAL_CAPTURE-gated code rotted? See docs/eval-capture.md."
+  echo "[pre-commit] tests FAILED in Release build — aborting commit."
+  echo "[pre-commit] Non-eval-capture code rotted? See docs/eval-capture.md."
   exit 1
 fi
 
-echo "[pre-commit] both flag states OK"
+echo "[pre-commit] both build configurations OK"

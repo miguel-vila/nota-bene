@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Pre-commit hook: runs `swift test` in both compilation-flag states so
-# EVAL_CAPTURE-gated code doesn't rot silently.
+# Pre-commit hook: runs `swift test` in both Debug and Release configurations
+# so the DEBUG-gated eval-capture code path doesn't rot silently in either
+# direction (broken Debug → can't dogfood; broken Release → can't ship).
 #
 # Install by running: ./scripts/git-hooks/install.sh
 #
@@ -19,21 +20,18 @@ if ! git diff --cached --name-only | grep -qE '\.swift$|^Package\.swift$|^Packag
   exit 0
 fi
 
-# EVAL_CAPTURE is auto-on in Debug, off in Release (see Package.swift).
-# Running both configurations exercises both code paths.
-
-echo "[pre-commit] swift test (Debug — EVAL_CAPTURE on)"
+echo "[pre-commit] swift test (Debug — #if DEBUG branches active)"
 if ! swift test --quiet; then
   echo ""
   echo "[pre-commit] tests FAILED in Debug build — aborting commit."
   exit 1
 fi
 
-echo "[pre-commit] swift test -c release (Release — EVAL_CAPTURE off)"
+echo "[pre-commit] swift test -c release (Release — #if DEBUG branches dropped)"
 if ! swift test --quiet -c release; then
   echo ""
   echo "[pre-commit] tests FAILED in Release build — aborting commit."
-  echo "[pre-commit] Non-eval-capture code rotted? See docs/eval-capture.md."
+  echo "[pre-commit] Non-debug code rotted? See docs/eval-capture.md."
   exit 1
 fi
 

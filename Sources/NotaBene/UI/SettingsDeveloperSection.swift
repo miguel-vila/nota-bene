@@ -1,4 +1,4 @@
-#if EVAL_CAPTURE && canImport(SwiftUI) && canImport(UIKit)
+#if DEBUG && canImport(SwiftUI) && canImport(UIKit)
 import SwiftUI
 import UIKit
 

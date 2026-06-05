@@ -37,7 +37,7 @@ public struct SettingsView: View {
                         exportTargetsGroup
                         experimentalSection
                         debugSection
-                        #if EVAL_CAPTURE
+                        #if DEBUG
                         developerSection
                         #endif
                         if let statusMessage {

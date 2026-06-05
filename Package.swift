@@ -8,9 +8,9 @@ let package = Package(
         .library(name: "NotaBene", targets: ["NotaBene"]),
     ],
     dependencies: [
-        // Used only by EvalSampleWriter (gated on `#if EVAL_CAPTURE`). Linked
-        // into the package but the symbols are dead-stripped in Release builds
-        // since no `#if EVAL_CAPTURE` block references them outside Debug.
+        // Used only by EvalSampleWriter (gated on `#if DEBUG`). Linked into
+        // the package but the symbols are dead-stripped in Release builds
+        // since no `#if DEBUG` block references them outside Debug.
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.19"),
     ],
     targets: [
@@ -19,14 +19,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
             ],
-            path: "Sources/NotaBene",
-            swiftSettings: [
-                // EVAL_CAPTURE is auto-on in Debug builds (Xcode's Debug
-                // config, `swift build`, `swift test`) and auto-off in Release
-                // (Xcode's Release config, `swift build -c release`, archive).
-                // No manual Xcode setting required — see docs/eval-capture.md.
-                .define("EVAL_CAPTURE", .when(configuration: .debug)),
-            ]
+            path: "Sources/NotaBene"
         ),
         .testTarget(
             name: "NotaBeneTests",

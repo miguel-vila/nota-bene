@@ -63,7 +63,7 @@ public struct CaptureFlowContainer: View {
         }
         do {
             let trace = try await extractor.extractWithTrace(fromImages: flow.images, mimeType: "image/jpeg")
-            #if EVAL_CAPTURE
+            #if DEBUG
             await maybeWriteEvalSample(trace: trace)
             #endif
             flow.applyExtraction(trace.result)
@@ -157,7 +157,7 @@ public struct CaptureFlowContainer: View {
         }
     }
 
-    #if EVAL_CAPTURE
+    #if DEBUG
     private func maybeWriteEvalSample(trace: ExtractionTrace) async {
         let enabled = UserDefaults.standard.bool(forKey: EvalPreferenceKey.evalCaptureEnabled)
         guard enabled else { return }

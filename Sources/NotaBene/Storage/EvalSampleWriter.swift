@@ -1,8 +1,4 @@
-#if EVAL_CAPTURE
-
-#if !DEBUG
-#error("EVAL_CAPTURE must only be defined alongside DEBUG. Check project.yml — it must never appear in any Release configuration.")
-#endif
+#if DEBUG
 
 import CryptoKit
 import Foundation
@@ -15,8 +11,7 @@ public enum EvalPreferenceKey {
 /// Owns the on-disk eval dataset (`<Documents>/EvalSamples/`).
 ///
 /// See `docs/eval-capture.md` for the full spec. Every method here is gated by
-/// `#if EVAL_CAPTURE`; the entire writer compiles out of any build that
-/// doesn't define the flag.
+/// `#if DEBUG`; the entire writer compiles out of Release builds.
 public actor EvalSampleWriter {
     public enum WriteError: Error, CustomStringConvertible {
         case templateMismatch(file: String)
@@ -396,4 +391,4 @@ private struct ImageFormat {
     }
 }
 
-#endif // EVAL_CAPTURE
+#endif // DEBUG

@@ -10,6 +10,7 @@ extension SettingsView {
 }
 
 struct SettingsDeveloperSection: View {
+    @EnvironmentObject private var state: AppState
     @AppStorage(EvalPreferenceKey.evalCaptureEnabled) private var enabled: Bool = false
     @State private var snapshot: EvalSampleWriter.DirSnapshot = .empty
     @State private var showingClearConfirm: Bool = false
@@ -20,6 +21,13 @@ struct SettingsDeveloperSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel("DEVELOPER")
+            ThemedCard {
+                ToggleRowLocal(
+                    title: "Show response payload on errors",
+                    subtitle: "Includes raw HTTP body in error messages",
+                    isOn: $state.debugMode
+                )
+            }
             ThemedCard {
                 VStack(alignment: .leading, spacing: 14) {
                     ToggleRowLocal(

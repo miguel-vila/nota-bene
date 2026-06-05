@@ -36,7 +36,6 @@ public struct SettingsView: View {
                         modelGroup
                         exportTargetsGroup
                         experimentalSection
-                        debugSection
                         #if DEBUG
                         developerSection
                         #endif
@@ -397,19 +396,6 @@ public struct SettingsView: View {
                     title: "Merge highlights",
                     subtitle: "Combine adjacent highlights in Review",
                     isOn: $state.experimentalMergeHighlights
-                )
-            }
-        }
-    }
-
-    private var debugSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionLabel("DEBUG")
-            ThemedCard {
-                ToggleRow(
-                    title: "Show response payload on errors",
-                    subtitle: "Includes raw HTTP body in error messages",
-                    isOn: $state.debugMode
                 )
             }
         }

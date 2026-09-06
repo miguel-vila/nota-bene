@@ -15,12 +15,12 @@ public enum ExtractionPrompts {
     ///
     /// The eval-sample writer hash-checks the in-memory template against the
     /// on-disk file and crashes if they differ — a forgotten bump is loud.
-    public static let singleExtractionVersion = "v1"
+    public static let singleExtractionVersion = "v2"
 
     /// Identifier for the multi-page request template. Same bump rules as
     /// `singleExtractionVersion` but applied to `multiPagePrompt` and the
     /// multi-variant template contents.
-    public static let multiExtractionVersion = "v1"
+    public static let multiExtractionVersion = "v2"
 
     public static func defaultPrompt(forPageCount count: Int) -> String {
         count > 1 ? multiPagePrompt : singlePagePrompt
@@ -143,6 +143,11 @@ public enum ExtractionPrompts {
       though no overlay or underline covers the words themselves. Do not include
       the corner tags in the returned text; they are markers, not content. A
       lone corner-shaped mark with no matching partner is not a highlight.
+
+    A single page may mix mark styles across its passages — for example, one
+    passage may be underlined while another on the same page is marked only
+    with corner tags. Judge each passage independently by whichever style
+    surrounds it.
 
     When in doubt, treat the text as unmarked.
     """

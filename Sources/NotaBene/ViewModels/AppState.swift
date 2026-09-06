@@ -36,6 +36,15 @@ public final class AppState: ObservableObject {
     @Published public var experimentalMergeHighlights: Bool {
         didSet { defaults.set(experimentalMergeHighlights, forKey: PreferenceKey.experimentalMergeHighlights) }
     }
+    #if DEBUG
+    /// Per-capture opt-in (decided on the Review screen after seeing the
+    /// extraction) for whether to save that capture as an eval sample.
+    /// Deliberately session-only — NOT `@AppStorage` — so it resets to off on
+    /// every cold launch; a freshly constructed `AppState` starts off. The
+    /// choice is remembered within a session ("remember last").
+    /// See docs/eval-capture.md.
+    @Published public var evalRecordThisCapture = false
+    #endif
     @Published public private(set) var enabledTargets: Set<ExportTarget> {
         didSet {
             let raws = enabledTargets.map(\.rawValue).sorted()

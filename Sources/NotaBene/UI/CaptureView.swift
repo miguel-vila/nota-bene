@@ -64,7 +64,9 @@ public struct CaptureFlowContainer: View {
         do {
             let trace = try await extractor.extractWithTrace(fromImages: flow.images, mimeType: "image/jpeg")
             #if DEBUG
-            await maybeWriteEvalSample(trace: trace)
+            // Defer the eval-sample decision to the Review screen: hold the
+            // trace, write only if the user opts in and taps Save (see submit()).
+            flow.pendingEvalTrace = trace
             #endif
             flow.applyExtraction(trace.result)
         } catch ExtractionError.invalidKey {
@@ -93,6 +95,13 @@ public struct CaptureFlowContainer: View {
             )
         }
         guard !drafts.isEmpty else { return }
+
+        #if DEBUG
+        // Capture the eval sample on Save intent — before the export-target
+        // checks — so a misconfigured/failed export doesn't lose the sample.
+        // Independent of whether the Readwise/Notion submit below succeeds.
+        await maybeWriteEvalSample()
+        #endif
 
         let activeTargets = state.enabledTargets.intersection(state.configuredTargets())
         guard !activeTargets.isEmpty else {
@@ -158,9 +167,14 @@ public struct CaptureFlowContainer: View {
     }
 
     #if DEBUG
-    private func maybeWriteEvalSample(trace: ExtractionTrace) async {
-        let enabled = UserDefaults.standard.bool(forKey: EvalPreferenceKey.evalCaptureEnabled)
-        guard enabled else { return }
+    private func maybeWriteEvalSample() async {
+        let masterEnabled = UserDefaults.standard.bool(forKey: EvalPreferenceKey.evalCaptureEnabled)
+        guard CaptureFlow.shouldWriteEvalSample(
+            masterEnabled: masterEnabled,
+            recordThisCapture: state.evalRecordThisCapture,
+            hasPendingTrace: flow.pendingEvalTrace != nil,
+            alreadyWrote: flow.didWriteEvalSample
+        ), let trace = flow.pendingEvalTrace else { return }
         let provider = state.provider
         let model = state.currentModel
         let book = flow.book
@@ -182,6 +196,9 @@ public struct CaptureFlowContainer: View {
                 platform: platform,
                 deviceModel: deviceModel
             )
+            // Mark written only on success, so a failed write can retry on the
+            // next Save tap without ever duplicating a successful one.
+            flow.didWriteEvalSample = true
         } catch {
             // Eval capture is a dev tool — surface in console, never block the
             // capture flow. The Settings → Developer footer shows last-write

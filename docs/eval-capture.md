@@ -4,7 +4,7 @@
 
 ### Purpose
 
-Every successful Extraction round-trip pairs a real-world photo with a real model response. Today that pair is thrown away the moment Review opens. This feature persists those pairs to disk while the flag is on, then ships them off-device as a single archive so they can be labeled and turned into an eval set in a separate tool.
+Every successful Extraction round-trip pairs a real-world photo with a real model response. Today that pair is thrown away the moment Review opens. This feature lets the developer **curate** those pairs — after seeing the extraction result on the Review screen, decide per capture whether to keep it — persists the kept ones to disk, then ships them off-device as a single archive so they can be labeled and turned into an eval set in a separate tool.
 
 ### Non-goals
 
@@ -19,11 +19,15 @@ The eval-capture code path is gated by the standard **`#if DEBUG`** compilation 
 
 This is the iOS convention and removes the need for any custom flag, manual Xcode setting, project.yml plumbing, or CI guard. Build & Run from Xcode (Debug by default) lights the feature up; Archive / TestFlight / App Store builds drop it on the floor.
 
-In DEBUG builds, Settings grows a new **"Developer"** section with a single toggle:
+In DEBUG builds, Settings grows a new **"Developer"** section with a **master enable**:
 
 - **Capture eval samples** — off by default. Persisted in `UserDefaults` under `evalCaptureEnabled`. Survives relaunches but reverts to off if you reinstall.
 
-The flag controls a single piece of behavior: whether each successful extraction writes a sample to disk. Toggling it off mid-session stops new writes immediately; previously written samples are kept until the user clears them.
+This master flag does **not** itself write anything. It is a *feature-available* switch: when on, it surfaces a per-capture **"Save eval sample"** toggle on the Review screen (and the `REC · EVAL` badge once that per-capture toggle is on). The actual per-capture decision — and the disk write — happens there, on Save. See "What a sample is" below.
+
+The per-capture choice is a separate piece of state, `AppState.evalRecordThisCapture`: **session-only** (deliberately *not* `UserDefaults`-backed), so it resets to off on every cold launch and can never silently resurrect a weeks-old "on" that quietly accumulates samples. Within a session it is remembered ("remember last") so a multi-capture collection run doesn't re-toggle every time.
+
+Toggling the master flag off mid-session stops new writes immediately — the write is gated on the master key, not just the per-capture toggle's visibility, so a stale per-capture "on" cannot keep writing after the feature is disabled. Previously written samples are kept until the developer clears them.
 
 The Developer section surfaces two adjacent actions. Both are **always visible** (even when zero samples exist) so the developer can tell at a glance whether nothing has been written yet vs. whether writes are silently failing:
 
@@ -36,32 +40,38 @@ Rationale for compile-time gating over a hidden release flag: the dataset is a d
 
 ### Visual cue while capturing
 
-When `evalCaptureEnabled` is true, an `EvalRecordingBadge` is shown on **every screen in the capture flow** — Camera, Preview, Extracting, Review, and Saved — so the developer cannot miss the flag at any point and so the Photos-picker path (which skips Camera entirely) still surfaces the badge before any sample is written. Specifications:
+An `EvalRecordingBadge` is shown on **every screen in the capture flow** — Camera, Preview, Extracting, Review, and Saved — while an eval-recording streak is active, i.e. `evalCaptureEnabled && AppState.evalRecordThisCapture`. Because the per-capture choice is remembered within a session, once the developer opts a capture in, the badge surfaces from the *next* capture's Camera screen onward (including the Photos-picker path, which skips Camera), making the recording state impossible to miss before any sample is written. On the very first capture of a session — before any opt-in — the badge stays hidden until the developer flips the Review toggle. Specifications:
 
 - Position: **top-right** of the screen, away from both the `PAGE N / 2` chip in the top-left and the instructional text pinned near the bottom of the camera viewport. (Bottom-left, as originally drafted, collided with both on small devices.)
 - Label: `REC · EVAL` in the same mono caption style as `PAGE N / 2`.
 - Color: red dot + white text on a translucent dark capsule, matching the existing chip aesthetic.
-- Behavior: static (no pulse/animation). Hidden whenever `evalCaptureEnabled` is off. The badge view itself is wrapped in `#if DEBUG`, so it cannot render in Release builds.
+- Behavior: static (no pulse/animation). Hidden whenever the master flag is off *or* the per-capture toggle is off. The badge view itself is wrapped in `#if DEBUG`, so it cannot render in Release builds.
 
-In addition, the **Settings → Developer section** shows a persistent inline banner ("Eval capture is ON — every successful extraction will be saved") whenever the flag is enabled, so the developer who navigates away from the capture flow still sees the state. The banner uses the same red-dot + capsule style as the badge for visual consistency.
+The Review screen carries the actual control: a **"Save eval sample"** toggle pinned in the save bar, just above the Save button (always visible, no scrolling). It is shown only when `evalCaptureEnabled && pendingEvalTrace != nil` — so it's hidden on the "Type manually" / skip path, which has no extraction to record — and binds to `AppState.evalRecordThisCapture`.
+
+(The earlier draft's persistent red banner in Settings — "Eval capture is ON — every successful extraction will be saved" — is **retired**: it is no longer true that enabling the master flag saves anything. The toggle subtitle now explains the per-capture flow instead.)
 
 ### What a sample is
 
-A single sample corresponds to one **Extraction round-trip**: the set of images sent in one model request plus the model's parsed response. Extraction runs once between Preview ("Use photo(s)") and Review, so each capture flow that reaches Review produces exactly one sample.
+A single sample corresponds to one **Extraction round-trip**: the set of images sent in one model request plus the model's parsed/raw response. Extraction runs once between Preview ("Use photo(s)") and Review, so each capture flow that reaches Review *can* produce at most one sample — but only if the developer opts in.
 
-A sample is written synchronously at the **extraction call site** (currently `CaptureView.swift:53`, in the closure that handles a successful `extractHighlights(...)` result) the moment the parsed `ExtractionResult` is in hand, **before** the flow transitions to Review. This means:
+The extraction trace is held on the flow (`CaptureFlow.pendingEvalTrace`, DEBUG-only) when extraction succeeds; nothing is written yet. The sample is written **on the Review screen, when the developer taps Save**, from the top of `CaptureFlowContainer.submit()` — *before* the export-target checks, so the sample is captured on Save intent even if the export target is misconfigured, and **independently of whether the Readwise/Notion submit then succeeds**. `flow.images` are still present at that point (only `markSaved` clears them). This means:
 
-- If extraction throws (network, invalid key, parse failure), nothing is written — failures are intentionally out of scope (see "Failures" below).
-- If extraction returns an **empty** `highlights` array (the model saw no marked passages), the sample **is** written. An empty result is a real model output worth evaluating — it tells the eval whether the model missed real highlights.
-- The user's subsequent actions in Review (edit, save, cancel, retake) do **not** affect what's captured. The eval is about model quality, not user behavior.
+- If extraction throws (network, invalid key, parse failure), no trace is held and nothing is written — failures are intentionally out of scope (see "Failures" below).
+- If extraction returns an **empty** `highlights` array (the model saw no marked passages), a trace is still held and the sample **is** written if the developer opts in. An empty result is a real model output worth evaluating — it tells the eval whether the model missed real highlights.
+- What is recorded is the **raw model output + images only** — the `sample.json` schema is unchanged (`schema_version: 1`). The developer's edits to the highlights in Review are **not** captured. The eval is about model quality, not user corrections; capturing edited highlights as ground-truth labels is explicitly out of scope.
 
-Trigger conditions, in order:
+The write gate, evaluated on Save, is exactly:
 
-1. `evalCaptureEnabled` is on at the moment extraction returns.
-2. Extraction returned without throwing (parsed result in hand, including empty arrays).
-3. The writer call has not been cancelled (e.g. the task was cancelled because the user backed out before the network call finished — Swift structured concurrency handles this; cancellation skips the write).
+```
+evalCaptureEnabled && AppState.evalRecordThisCapture && flow.pendingEvalTrace != nil && !flow.didWriteEvalSample
+```
 
-There is no separate "user reached Review" gate: the write happens before the Review transition, so the two outcomes are equivalent.
+(implemented as the pure `CaptureFlow.shouldWriteEvalSample(...)` so it is unit-testable).
+
+- The **master key** (`evalCaptureEnabled`) is part of the gate, not just the toggle's visibility — a stale per-capture "on" must stop writing the instant the feature is disabled in Settings.
+- **At most once per capture:** `flow.didWriteEvalSample` (set only on a *successful* write) guards against duplicates. A failed Readwise/Notion submit returns to Review and Save can be re-tapped; the second tap will not write a second sample. A failed *write* (rare — disk/template error) leaves the flag off so the next Save tap retries.
+- Both `pendingEvalTrace` and `didWriteEvalSample` are cleared by `CaptureFlow.reset()` and `markSaved()`, so a new capture starts clean. `evalRecordThisCapture` is **not** reset per capture — that is the "remember last" behavior; it only resets on cold launch.
 
 ### On-disk layout
 
@@ -210,9 +220,11 @@ So the spec is concrete enough to estimate against, the touch points are:
 
 - **`HighlightExtractor` protocol — always-on richer return type.** The protocol's `extractHighlights(fromImages:mimeType:)` returns `ExtractionTrace { result: ExtractionResult, rawResponseBody: String, latencyMillis: Int, requestMime: String }` in all builds, not just Debug. Production code (`HighlightSubmitter` / `CaptureFlow`) ignores the trace fields and uses `.result`; the eval-capture call site reads them. This keeps a single API surface — a "DEBUG-only protocol fork" would have split production/test/eval behavior across the two clients, which is exactly the kind of compile-time multiverse that rots.
 - **`ExtractionPrompts`** — adds per-variant version constants `singleExtractionVersion` / `multiExtractionVersion`, each a string (`"v3"`, `"v4"`, …) bumped manually whenever **any** field stored in the corresponding `request_templates/...json` file changes (prompt text, any guidance constant it interpolates, tool/response schema, user-text trailer, tool description, `max_tokens`). The writer's hash-check (see "On-disk layout") enforces this at runtime — a forgotten bump crashes with a clear message.
-- **Extraction call site (`CaptureView.swift:53`)** — this is where extraction is actually invoked, where the active `HighlightExtractor`, provider, model, and book are all in scope, and where the `ExtractionTrace` lands. On a successful trace, this site (wrapped in `#if DEBUG`, gated on `evalCaptureEnabled`) calls `EvalSampleWriter.writeSample(trace:, images:, mimeType:, provider:, model:, variant:, book:)`. The write happens synchronously before the `CaptureFlow.applyExtraction(...)` call so the Review transition can't race the writer. (Previous draft put the call inside `CaptureFlow.applyExtraction` — that's wrong: `CaptureFlow` doesn't have provider / model / raw body / latency / mime in scope.)
-- **`SettingsView.swift`** — new `#if DEBUG` "Developer" section with the toggle, on/off banner, always-visible sample count + size + last-write-status, **Export samples** (disabled at 0), **Clear samples** (disabled at 0).
-- **Capture-flow screens** — `EvalRecordingBadge` view rendered top-right on `CameraView`, `CapturePreview`, `Extracting`, `Review`, and `Saved` whenever `evalCaptureEnabled`. View itself is wrapped in `#if DEBUG` so it can't exist in Release builds.
+- **Extraction call site (`CaptureFlowContainer.runExtraction`)** — where extraction is invoked and the `ExtractionTrace` lands. On a successful trace it (wrapped in `#if DEBUG`) stores `flow.pendingEvalTrace = trace` and transitions to Review; it does **not** write. (`CaptureFlow` itself doesn't need provider / model / raw body in scope — the write call site reads those from `AppState`.)
+- **Write call site (`CaptureFlowContainer.submit`)** — at the top of `submit()`, before the export-target checks, a `#if DEBUG` `maybeWriteEvalSample()` evaluates the gate (`CaptureFlow.shouldWriteEvalSample(...)`) and, if it passes, calls `EvalSampleWriter.writeSample(trace:, images:, provider:, model:, book:, …)` reading provider/model/book from `AppState` + `flow`. It marks `flow.didWriteEvalSample` on success. The write fires on Save intent, independently of the export submit's outcome.
+- **`SettingsView.swift` / `SettingsDeveloperSection`** — `#if DEBUG` "Developer" section with the **master enable** toggle (subtitle explains the per-capture flow; the old red on/off banner is retired), always-visible sample count + size + last-write-status, **Export samples** (disabled at 0), **Clear samples** (disabled at 0).
+- **`ReviewView`** — `#if DEBUG` "Save eval sample" toggle in the pinned save bar (above Save), shown only when `evalCaptureEnabled && pendingEvalTrace != nil`, bound to `AppState.evalRecordThisCapture`.
+- **Capture-flow screens** — `EvalRecordingBadge` view rendered top-right on `CameraView`, `CapturePreview`, `Extracting`, `Review`, and `Saved` whenever `evalCaptureEnabled && AppState.evalRecordThisCapture`. View itself is wrapped in `#if DEBUG` so it can't exist in Release builds.
 - **New file `Sources/NotaBene/Storage/EvalSampleWriter.swift`** — actor (entire file wrapped in `#if DEBUG`) that owns `EvalSamples/` and its `request_templates/` subdirectory: writes a sample atomically (temp dir + rename), creates the template file on first miss for a `(provider, variant, version)` triple, hash-checks on hit and `preconditionFailure`s on mismatch, lists samples, computes total size, clears, cleans up `.in_progress/` on init, and produces an export zip. Tags `EvalSamples/` as excluded from iCloud backup via `URLResourceKey.isExcludedFromBackupKey = true` so accidentally-on iCloud Drive doesn't sync book photos off-device.
 - **`ZIPFoundation` dependency** — added to `Package.swift` as a Swift Package dependency, but the import + zip code lives inside `#if DEBUG`-wrapped files so the dep is dead-stripped from release builds. (The earlier "use Foundation directly" suggestion was hand-waving — Foundation has no first-party zip API outside `NSFileCoordinator`'s archive APIs, which are awkward and macOS-leaning. Pick `ZIPFoundation` outright.)
 

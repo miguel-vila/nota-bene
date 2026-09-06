@@ -97,6 +97,37 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(second.claudeModel, "claude-opus-4-7")
     }
 
+    #if DEBUG
+    func test_evalRecordThisCapture_defaultsToOff() {
+        let state = AppState(
+            secretStore: InMemorySecretStore(),
+            bookStore: BookStore(url: tempBookStoreURL()),
+            defaults: makeDefaults()
+        )
+        XCTAssertFalse(state.evalRecordThisCapture)
+    }
+
+    func test_evalRecordThisCapture_isSessionOnly_doesNotPersistAcrossInstances() {
+        // Session-only by design: a stale "on" must not silently resurrect on
+        // a later launch and keep writing samples. A fresh AppState starts off.
+        let defaults = makeDefaults()
+        let url = tempBookStoreURL()
+        let first = AppState(
+            secretStore: InMemorySecretStore(),
+            bookStore: BookStore(url: url),
+            defaults: defaults
+        )
+        first.evalRecordThisCapture = true
+
+        let second = AppState(
+            secretStore: InMemorySecretStore(),
+            bookStore: BookStore(url: url),
+            defaults: defaults
+        )
+        XCTAssertFalse(second.evalRecordThisCapture)
+    }
+    #endif
+
     func test_resetGeminiModelToDefault() {
         let state = AppState(
             secretStore: InMemorySecretStore(),

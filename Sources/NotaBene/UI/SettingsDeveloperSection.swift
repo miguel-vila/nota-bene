@@ -32,12 +32,9 @@ struct SettingsDeveloperSection: View {
                 VStack(alignment: .leading, spacing: 14) {
                     ToggleRowLocal(
                         title: "Capture eval samples",
-                        subtitle: "Save every successful extraction (image + model output) for offline labeling.",
+                        subtitle: "Adds a per-capture “Save eval sample” toggle on the Review screen, so you choose which extractions to keep.",
                         isOn: $enabled
                     )
-                    if enabled {
-                        banner
-                    }
                     statusFooter
                     actions
                 }
@@ -70,26 +67,6 @@ struct SettingsDeveloperSection: View {
     }
 
     // MARK: - Pieces
-
-    private var banner: some View {
-        HStack(spacing: 8) {
-            Circle().fill(Color.red).frame(width: 7, height: 7)
-            Text("Eval capture is ON — every successful extraction will be saved.")
-                .font(Theme.Typography.sans(12, weight: .medium))
-                .foregroundStyle(Theme.Palette.ink)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Layout.chipRadius)
-                .fill(Theme.Palette.dangerBg)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.Layout.chipRadius)
-                .stroke(Theme.Palette.danger.opacity(0.35), lineWidth: 1)
-        )
-    }
 
     private var statusFooter: some View {
         VStack(alignment: .leading, spacing: 2) {

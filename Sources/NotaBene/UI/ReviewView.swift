@@ -4,6 +4,9 @@ import SwiftUI
 struct ReviewView: View {
     @EnvironmentObject private var state: AppState
     @ObservedObject var flow: CaptureFlow
+    #if DEBUG
+    @AppStorage(EvalPreferenceKey.evalCaptureEnabled) private var evalCaptureEnabled: Bool = false
+    #endif
     var onSave: () async -> Void
     var onCancel: () -> Void
     var onChangeBook: () -> Void
@@ -151,6 +154,9 @@ struct ReviewView: View {
             LinearGradient(colors: [.clear, Theme.Palette.bg], startPoint: .top, endPoint: .bottom)
                 .frame(height: 32)
             VStack {
+                #if DEBUG
+                evalSampleToggle
+                #endif
                 Button {
                     Task { await onSave() }
                 } label: {
@@ -184,6 +190,44 @@ struct ReviewView: View {
         if count <= 1 { return "Save highlight" }
         return "Save \(count) highlights"
     }
+
+    #if DEBUG
+    /// Per-capture "Save eval sample" opt-in. Shown only when the master flag
+    /// is on AND this capture has an extraction trace to record (hidden on the
+    /// "Type manually" / skip path). Binds to the session-remembered choice on
+    /// `AppState`. See docs/eval-capture.md.
+    @ViewBuilder
+    private var evalSampleToggle: some View {
+        if evalCaptureEnabled, flow.pendingEvalTrace != nil {
+            HStack(spacing: 10) {
+                Circle().fill(Color.red).frame(width: 7, height: 7)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Save eval sample")
+                        .font(Theme.Typography.sans(13, weight: .medium))
+                        .foregroundStyle(Theme.Palette.ink)
+                    Text("Record this extraction for offline eval")
+                        .font(Theme.Typography.sans(11))
+                        .foregroundStyle(Theme.Palette.muted)
+                }
+                Spacer()
+                Toggle("", isOn: $state.evalRecordThisCapture)
+                    .labelsHidden()
+                    .disabled(flow.stage == .submitting)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Layout.smallCardRadius)
+                    .fill(Theme.Palette.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Layout.smallCardRadius)
+                    .stroke(Theme.Palette.line, lineWidth: 1)
+            )
+            .padding(.bottom, 8)
+        }
+    }
+    #endif
 }
 
 // MARK: - Highlight card

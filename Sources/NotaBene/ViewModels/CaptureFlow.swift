@@ -63,6 +63,17 @@ public final class CaptureFlow: ObservableObject {
     @Published public var lastSavedHighlights: [EditableHighlight] = []
     @Published public var targetSuccesses: Set<ExportTarget> = []
 
+    #if DEBUG
+    /// Trace from the successful extraction, held so a later Save tap on the
+    /// Review screen can write the eval sample. `nil` on the skip / "Type
+    /// manually" path (no extraction → nothing to record). Drives the Review
+    /// "Save eval sample" toggle's visibility. See docs/eval-capture.md.
+    @Published public var pendingEvalTrace: ExtractionTrace?
+    /// Guards the eval write to at-most-once per capture: a failed submit
+    /// returns to Review and Save can be re-tapped without duplicating.
+    public var didWriteEvalSample: Bool = false
+    #endif
+
     public init(book: Book) {
         self.book = book
     }
@@ -194,6 +205,10 @@ public final class CaptureFlow: ObservableObject {
         lastError = nil
         targetSuccesses = []
         stage = .capture
+        #if DEBUG
+        pendingEvalTrace = nil
+        didWriteEvalSample = false
+        #endif
         if !keep {
             // Caller should swap the book.
         }
@@ -207,6 +222,10 @@ public final class CaptureFlow: ObservableObject {
         lastError = nil
         targetSuccesses = []
         stage = .saved
+        #if DEBUG
+        pendingEvalTrace = nil
+        didWriteEvalSample = false
+        #endif
     }
 
     public func markTargetSucceeded(_ target: ExportTarget) {
@@ -221,4 +240,23 @@ public final class CaptureFlow: ObservableObject {
         !savableHighlights.isEmpty
     }
 }
+
+#if DEBUG
+extension CaptureFlow {
+    /// Pure decision for whether a Save tap should write an eval sample.
+    ///
+    /// Critically checks the master key (`masterEnabled`) too, not just the
+    /// per-capture toggle's visibility: a stale `recordThisCapture == true`
+    /// must stop writing the moment the feature is disabled in Settings.
+    /// See docs/eval-capture.md.
+    static func shouldWriteEvalSample(
+        masterEnabled: Bool,
+        recordThisCapture: Bool,
+        hasPendingTrace: Bool,
+        alreadyWrote: Bool
+    ) -> Bool {
+        masterEnabled && recordThisCapture && hasPendingTrace && !alreadyWrote
+    }
+}
+#endif
 #endif

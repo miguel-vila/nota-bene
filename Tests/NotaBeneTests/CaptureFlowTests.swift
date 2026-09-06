@@ -133,5 +133,92 @@ final class CaptureFlowTests: XCTestCase {
         XCTAssertEqual(flow.stage, .preview)
         XCTAssertEqual(flow.images.count, 1)
     }
+
+    #if DEBUG
+    // MARK: - Eval capture (DEBUG-only)
+
+    private func makeTrace() -> ExtractionTrace {
+        ExtractionTrace(
+            result: ExtractionResult(highlights: [
+                ExtractionResult.Highlight(text: "hi", pageNumber: 1, note: nil)
+            ]),
+            rawResponseBody: "{}",
+            latencyMillis: 10,
+            requestMime: "image/jpeg"
+        )
+    }
+
+    func test_shouldWriteEvalSample_allConditionsMet_returnsTrue() {
+        XCTAssertTrue(CaptureFlow.shouldWriteEvalSample(
+            masterEnabled: true,
+            recordThisCapture: true,
+            hasPendingTrace: true,
+            alreadyWrote: false
+        ))
+    }
+
+    func test_shouldWriteEvalSample_requiresMasterKey() {
+        // Stale per-capture opt-in must NOT keep writing once the feature is
+        // disabled in Settings — the master key gates the write too.
+        XCTAssertFalse(CaptureFlow.shouldWriteEvalSample(
+            masterEnabled: false,
+            recordThisCapture: true,
+            hasPendingTrace: true,
+            alreadyWrote: false
+        ))
+    }
+
+    func test_shouldWriteEvalSample_requiresPerCaptureOptIn() {
+        XCTAssertFalse(CaptureFlow.shouldWriteEvalSample(
+            masterEnabled: true,
+            recordThisCapture: false,
+            hasPendingTrace: true,
+            alreadyWrote: false
+        ))
+    }
+
+    func test_shouldWriteEvalSample_requiresPendingTrace() {
+        XCTAssertFalse(CaptureFlow.shouldWriteEvalSample(
+            masterEnabled: true,
+            recordThisCapture: true,
+            hasPendingTrace: false,
+            alreadyWrote: false
+        ))
+    }
+
+    func test_shouldWriteEvalSample_writeOnceGuard() {
+        XCTAssertFalse(CaptureFlow.shouldWriteEvalSample(
+            masterEnabled: true,
+            recordThisCapture: true,
+            hasPendingTrace: true,
+            alreadyWrote: true
+        ))
+    }
+
+    func test_skipExtraction_leavesNoPendingTrace() {
+        // The "Type manually" path produces no extraction → nothing to record.
+        let flow = makeFlow()
+        flow.skipExtraction()
+        XCTAssertNil(flow.pendingEvalTrace)
+    }
+
+    func test_reset_clearsEvalState() {
+        let flow = makeFlow()
+        flow.pendingEvalTrace = makeTrace()
+        flow.didWriteEvalSample = true
+        flow.reset()
+        XCTAssertNil(flow.pendingEvalTrace)
+        XCTAssertFalse(flow.didWriteEvalSample)
+    }
+
+    func test_markSaved_clearsEvalState() {
+        let flow = makeFlow()
+        flow.pendingEvalTrace = makeTrace()
+        flow.didWriteEvalSample = true
+        flow.markSaved([])
+        XCTAssertNil(flow.pendingEvalTrace)
+        XCTAssertFalse(flow.didWriteEvalSample)
+    }
+    #endif
 }
 #endif

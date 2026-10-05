@@ -1,22 +1,22 @@
 import Foundation
 
 public actor ClaudeClient: HighlightExtractor {
-    public static let defaultModel = "claude-sonnet-4-6"
+    public static let defaultModel = "claude-sonnet-5"
     public static let apiVersion = ExtractionPrompts.Claude.anthropicVersion
     public static let maxTokens = ExtractionPrompts.Claude.maxTokens
     public static let toolName = ExtractionPrompts.Claude.toolName
 
     public enum ModelPreset: String, CaseIterable, Identifiable, Sendable {
-        case sonnet = "claude-sonnet-4-6"
-        case opus = "claude-opus-4-7"
+        case sonnet = "claude-sonnet-5"
+        case opus = "claude-opus-5"
         case haiku = "claude-haiku-4-5"
 
         public var id: String { rawValue }
 
         public var label: String {
             switch self {
-            case .sonnet: return "Sonnet 4.6 — recommended default"
-            case .opus: return "Opus 4.7 — most accurate, slower and pricier"
+            case .sonnet: return "Sonnet 5 — recommended default"
+            case .opus: return "Opus 5 — most accurate, slower and pricier"
             case .haiku: return "Haiku 4.5 — fastest, cheapest"
             }
         }
@@ -111,6 +111,7 @@ public actor ClaudeClient: HighlightExtractor {
         let body: [String: Any] = [
             "model": model,
             "max_tokens": maxTokens,
+            "thinking": ExtractionPrompts.Claude.thinking,
             "system": systemPrompt,
             "tools": [[
                 "name": toolName,

@@ -9,18 +9,19 @@ public enum ExtractionPrompts {
     /// - `singlePagePrompt` or any constant it interpolates
     ///   (`framingGuidance`, `markStylesGuidance`, `notesGuidance`).
     /// - `Claude.userTextInstruction`, `Claude.toolDescription`,
-    ///   `Claude.toolName`, `Claude.maxTokens`, `Claude.anthropicVersion`.
+    ///   `Claude.toolName`, `Claude.maxTokens`, `Claude.anthropicVersion`,
+    ///   `Claude.thinking`.
     /// - `ClaudeHighlightSchema.inputSchema`.
     /// - `Gemini.responseMimeType`, `Gemini.responseSchema`.
     ///
     /// The eval-sample writer hash-checks the in-memory template against the
     /// on-disk file and crashes if they differ — a forgotten bump is loud.
-    public static let singleExtractionVersion = "v2"
+    public static let singleExtractionVersion = "v3"
 
     /// Identifier for the multi-page request template. Same bump rules as
     /// `singleExtractionVersion` but applied to `multiPagePrompt` and the
     /// multi-variant template contents.
-    public static let multiExtractionVersion = "v2"
+    public static let multiExtractionVersion = "v3"
 
     public static func defaultPrompt(forPageCount count: Int) -> String {
         count > 1 ? multiPagePrompt : singlePagePrompt
@@ -43,6 +44,12 @@ public enum ExtractionPrompts {
         public static let toolName = "report_highlights"
         public static let maxTokens = 4096
         public static let anthropicVersion = "2023-06-01"
+
+        /// Extraction is a forced tool call over page images and gains nothing
+        /// from extended thinking. Sonnet 5 and Opus 5 turn thinking on when the
+        /// field is omitted, and thinking tokens share `maxTokens` with the tool
+        /// input, so it is switched off explicitly.
+        public static let thinking: [String: Any] = ["type": "disabled"]
 
         public static let toolDescription = "Report the highlighted passages extracted from the photographed pages. The `highlights` field MUST be a JSON array of objects (not a JSON-encoded string). Quotation marks inside any `text` value should appear as ordinary characters; do not pre-escape them."
 
@@ -67,6 +74,7 @@ public enum ExtractionPrompts {
                 "tool_input_schema": ClaudeHighlightSchema.inputSchema,
                 "tool_choice": ["type": "tool", "name": toolName],
                 "max_tokens": maxTokens,
+                "thinking": thinking,
                 "anthropic_version": anthropicVersion,
             ]
         }

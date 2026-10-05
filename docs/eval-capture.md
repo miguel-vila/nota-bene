@@ -114,7 +114,7 @@ Samples live in the app's Documents directory so they're visible to Finder/Files
   "request_template": "request_templates/claude-multi-v4.json",
   "photos": ["image_1.jpg", "image_2.jpg"],
   "provider": "claude",
-  "model": "claude-sonnet-4-6",
+  "model": "claude-sonnet-5",
   "app": {
     "version": "1.4.0",
     "build": "142",

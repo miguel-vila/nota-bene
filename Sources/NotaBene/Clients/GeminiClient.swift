@@ -1,20 +1,20 @@
 import Foundation
 
 public actor GeminiClient: HighlightExtractor {
-    public static let defaultModel = "gemini-2.5-flash"
+    public static let defaultModel = "gemini-3.8-flash"
 
     public enum ModelPreset: String, CaseIterable, Identifiable, Sendable {
-        case flash = "gemini-2.5-flash"
-        case pro = "gemini-2.5-pro"
-        case flashLite = "gemini-2.5-flash-lite"
+        case flash = "gemini-3.8-flash"
+        case pro = "gemini-3.1-pro-preview"
+        case flashLite = "gemini-3.5-flash-lite"
 
         public var id: String { rawValue }
 
         public var label: String {
             switch self {
-            case .flash: return "2.5 Flash — fast, recommended default"
-            case .pro: return "2.5 Pro — most accurate, slower and pricier"
-            case .flashLite: return "2.5 Flash Lite — cheapest, smaller"
+            case .flash: return "3.8 Flash — fast, recommended default"
+            case .pro: return "3.1 Pro (preview) — most accurate, slower and pricier"
+            case .flashLite: return "3.5 Flash Lite — cheapest, smaller"
             }
         }
     }

@@ -4,16 +4,20 @@ import XCTest
 final class ClaudeClientTests: XCTestCase {
     func test_makeBody_singleImageHasSystemPromptAndToolForcedJSON() throws {
         let body = try ClaudeClient.makeBody(
-            model: "claude-sonnet-4-6",
+            model: "claude-sonnet-5",
             images: [Data([0x01, 0x02, 0x03])],
             mimeType: "image/png",
             systemPrompt: "extract"
         )
         let json = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: Any])
 
-        XCTAssertEqual(json["model"] as? String, "claude-sonnet-4-6")
+        XCTAssertEqual(json["model"] as? String, "claude-sonnet-5")
         XCTAssertEqual(json["system"] as? String, "extract")
         XCTAssertNotNil(json["max_tokens"] as? Int)
+
+        // Extended thinking stays off so the whole token budget goes to the tool call.
+        let thinking = try XCTUnwrap(json["thinking"] as? [String: Any])
+        XCTAssertEqual(thinking["type"] as? String, "disabled")
 
         // tool_choice forces the tool.
         let toolChoice = try XCTUnwrap(json["tool_choice"] as? [String: Any])
@@ -50,7 +54,7 @@ final class ClaudeClientTests: XCTestCase {
 
     func test_makeBody_multipleImagesAreOrderedBeforeText() throws {
         let body = try ClaudeClient.makeBody(
-            model: "claude-sonnet-4-6",
+            model: "claude-sonnet-5",
             images: [Data([0xAA]), Data([0xBB])],
             mimeType: "image/jpeg",
             systemPrompt: "extract"
@@ -141,7 +145,7 @@ final class ClaudeClientTests: XCTestCase {
         // but we have some repair logic that should fix it
         let envelope = #"""
         {
-           "model":"claude-sonnet-4-6",
+           "model":"claude-sonnet-5",
            "id":"msg_01RRwqBXNmVgW4QV3GyQ5oMh",
            "type":"message",
            "role":"assistant",
@@ -182,7 +186,7 @@ final class ClaudeClientTests: XCTestCase {
     func test_parseResponse_incorrectQuotesHandling2() throws {
         let envelope = #"""
             {
-               "model":"claude-sonnet-4-6",
+               "model":"claude-sonnet-5",
                "id":"msg_01RRwqBXNmVgW4QV3GyQ5oMh",
                "type":"message",
                "role":"assistant",

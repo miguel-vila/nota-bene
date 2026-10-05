@@ -69,14 +69,14 @@ final class AppStateTests: XCTestCase {
             bookStore: BookStore(url: url),
             defaults: defaults
         )
-        first.geminiModel = "gemini-2.5-pro"
+        first.geminiModel = "gemini-3.1-pro-preview"
 
         let second = AppState(
             secretStore: InMemorySecretStore(),
             bookStore: BookStore(url: url),
             defaults: defaults
         )
-        XCTAssertEqual(second.geminiModel, "gemini-2.5-pro")
+        XCTAssertEqual(second.geminiModel, "gemini-3.1-pro-preview")
     }
 
     func test_claudeModel_persistsAcrossInstances() {
@@ -87,14 +87,14 @@ final class AppStateTests: XCTestCase {
             bookStore: BookStore(url: url),
             defaults: defaults
         )
-        first.claudeModel = "claude-opus-4-7"
+        first.claudeModel = "claude-opus-5"
 
         let second = AppState(
             secretStore: InMemorySecretStore(),
             bookStore: BookStore(url: url),
             defaults: defaults
         )
-        XCTAssertEqual(second.claudeModel, "claude-opus-4-7")
+        XCTAssertEqual(second.claudeModel, "claude-opus-5")
     }
 
     #if DEBUG
@@ -134,7 +134,7 @@ final class AppStateTests: XCTestCase {
             bookStore: BookStore(url: tempBookStoreURL()),
             defaults: makeDefaults()
         )
-        state.geminiModel = "gemini-2.5-pro"
+        state.geminiModel = "gemini-3.1-pro-preview"
         state.resetGeminiModelToDefault()
         XCTAssertEqual(state.geminiModel, GeminiClient.defaultModel)
     }
@@ -169,12 +169,12 @@ final class AppStateTests: XCTestCase {
             bookStore: BookStore(url: tempBookStoreURL()),
             defaults: makeDefaults()
         )
-        state.geminiModel = "gemini-2.5-pro"
-        state.claudeModel = "claude-opus-4-7"
+        state.geminiModel = "gemini-3.1-pro-preview"
+        state.claudeModel = "claude-opus-5"
         state.provider = .claude
         state.resetCurrentModelToDefault()
         XCTAssertEqual(state.claudeModel, ClaudeClient.defaultModel)
-        XCTAssertEqual(state.geminiModel, "gemini-2.5-pro")
+        XCTAssertEqual(state.geminiModel, "gemini-3.1-pro-preview")
     }
 
     func test_phase_readyRequiresActiveProviderKey() throws {

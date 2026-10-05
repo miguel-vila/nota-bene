@@ -271,10 +271,9 @@ final class NotionClientTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        var calls = 0
+        let calls = CallCounter()
         let mock = MockHTTPClient { _ in
-            calls += 1
-            return calls == 1 ? MockHTTPClient.ok(firstPage) : MockHTTPClient.ok(secondPage)
+            calls.next() == 0 ? MockHTTPClient.ok(firstPage) : MockHTTPClient.ok(secondPage)
         }
         let client = NotionClient(token: "tok", http: mock, baseURL: URL(string: "https://example.com")!)
         let id = try await client.findChildPage(parentPageID: "p1", title: title)

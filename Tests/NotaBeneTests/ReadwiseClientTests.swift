@@ -101,9 +101,7 @@ final class ReadwiseClientTests: XCTestCase {
         {"next": null, "results":[{"id":2,"title":"B","author":null}]}
         """.data(using: .utf8)!
 
-        var calls = 0
         let mock = MockHTTPClient { request in
-            calls += 1
             let data: Data = (request.url?.absoluteString.contains("page=2") ?? false) ? page2 : page1
             return MockHTTPClient.ok(data)
         }
@@ -111,7 +109,7 @@ final class ReadwiseClientTests: XCTestCase {
                                      baseURL: URL(string: "https://example.test")!)
         let books = try await client.listBooks()
         XCTAssertEqual(books.count, 2)
-        XCTAssertEqual(calls, 2)
+        XCTAssertEqual(mock.requests.count, 2)
         XCTAssertEqual(books.map(\.id), ["rw:1", "rw:2"])
         XCTAssertEqual(books.first?.source, .readwise)
         XCTAssertEqual(books.first?.coverURL?.absoluteString, "https://img.test/1.jpg")

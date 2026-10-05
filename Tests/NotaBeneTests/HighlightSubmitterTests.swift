@@ -237,10 +237,10 @@ final class HighlightSubmitterTests: XCTestCase {
         {"id": "page-new"}
         """.data(using: .utf8)!
 
-        var step = 0
+        let step = CallCounter()
         let mock = MockHTTPClient { req in
-            defer { step += 1 }
-            switch step {
+            let current = step.next()
+            switch current {
             case 0:
                 // GET children of parent
                 XCTAssertEqual(req.url?.path, "/v1/blocks/parent/children")
@@ -256,7 +256,7 @@ final class HighlightSubmitterTests: XCTestCase {
                 XCTAssertEqual(req.url?.path, "/v1/blocks/page-new/children")
                 return MockHTTPClient.ok(Data("{}".utf8))
             default:
-                XCTFail("unexpected extra request at step \(step)")
+                XCTFail("unexpected extra request at step \(current)")
                 return MockHTTPClient.ok(Data())
             }
         }
@@ -280,10 +280,10 @@ final class HighlightSubmitterTests: XCTestCase {
         {"id": "page-warm"}
         """.data(using: .utf8)!
 
-        var step = 0
+        let step = CallCounter()
         let mock = MockHTTPClient { req in
-            defer { step += 1 }
-            switch step {
+            let current = step.next()
+            switch current {
             case 0: return MockHTTPClient.ok(listJSON)        // initial find (empty)
             case 1: return MockHTTPClient.ok(createJSON)      // create page
             case 2: return MockHTTPClient.ok(Data("{}".utf8)) // append #1
@@ -293,7 +293,7 @@ final class HighlightSubmitterTests: XCTestCase {
                 XCTAssertEqual(req.url?.path, "/v1/blocks/page-warm/children")
                 return MockHTTPClient.ok(Data("{}".utf8))
             default:
-                XCTFail("unexpected request at step \(step)")
+                XCTFail("unexpected request at step \(current)")
                 return MockHTTPClient.ok(Data())
             }
         }

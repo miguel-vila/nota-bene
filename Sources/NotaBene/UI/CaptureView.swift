@@ -450,12 +450,12 @@ private struct PreviewScreen: View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Button { flow.retake() } label: {
-                    Label("Retake", systemImage: "arrow.uturn.backward")
+                    Label("Retake", systemImage: "arrow.counterclockwise")
                 }
                 .buttonStyle(GlassButtonStyle())
                 if flow.canTurnPage {
                     Button { flow.turnPage() } label: {
-                        Label("Turn page", systemImage: "arrow.up.left.and.arrow.down.right")
+                        Label("Turn page", systemImage: "book.pages")
                     }
                     .buttonStyle(GlassButtonStyle())
                 }

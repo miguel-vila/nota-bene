@@ -69,6 +69,7 @@ Adding a new provider is a matter of conforming a new client to `HighlightExtrac
   - Form: title (required), author (optional).
 - Books from Open Library and manual entry are not pre-registered in Readwise — they are created implicitly when the first highlight is submitted (Readwise creates the book from the highlight payload's `title`/`author`).
 - Selecting a book transitions to the Capture screen.
+- Coming back from a book — the back gesture, "Back to books" on the extraction-failed screen, "Change book" on Review, or Done after a save — restores this screen to how it looks on a fresh visit: the search field is empty and both result sections are gone, so the recents list is showing again. The cached Readwise library and any standing library-refresh error survive, since neither is part of the user's search.
 
 ### 2. Capture
 

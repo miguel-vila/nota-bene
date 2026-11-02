@@ -70,8 +70,6 @@ public final class AppState: ObservableObject {
     public let notionOAuthConfig: NotionOAuthConfig?
     private let defaults: UserDefaults
 
-    public var libraryRefreshIntervalHours: Double = 12
-
     public init(
         secretStore: SecretStore,
         bookStore: BookStore,

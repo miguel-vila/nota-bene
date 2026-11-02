@@ -3,24 +3,21 @@ import SwiftUI
 
 public struct BookSelectionView: View {
     @EnvironmentObject private var state: AppState
-    @State private var query: String = ""
-    @State private var searchTask: Task<Void, Never>?
-    @State private var libraryMatches: [Book] = []
-    @State private var openLibraryMatches: [Book] = []
-    @State private var recents: [Book] = []
-    @State private var libraryLoaded: Bool = false
-    @State private var libraryRefreshing: Bool = false
-    @State private var libraryError: String?
-    @State private var openLibrarySearching: Bool = false
+    @StateObject private var selection: BookSelection
     @State private var manualEntry: ManualEntry?
-    @State private var selection: Book?
     @State private var showSettings = false
 
     private struct ManualEntry: Identifiable {
         let id = UUID()
     }
 
-    public init() {}
+    public init(state: AppState) {
+        _selection = StateObject(wrappedValue: BookSelection(
+            bookStore: state.bookStore,
+            openLibrary: state.openLibrary,
+            readwiseClient: { state.currentReadwiseClient() }
+        ))
+    }
 
     public var body: some View {
         NavigationStack {
@@ -37,16 +34,16 @@ public struct BookSelectionView: View {
 
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 0) {
-                            if query.isEmpty && !recents.isEmpty {
-                                section("RECENT", rows: recents)
+                            if selection.query.isEmpty && !selection.recents.isEmpty {
+                                section("RECENT", rows: selection.recents)
                             }
-                            if !libraryMatches.isEmpty {
-                                section("IN YOUR LIBRARY", rows: libraryMatches)
+                            if !selection.libraryMatches.isEmpty {
+                                section("IN YOUR LIBRARY", rows: selection.libraryMatches)
                             }
-                            if !openLibraryMatches.isEmpty {
-                                section("NEW BOOK", rows: openLibraryMatches)
+                            if !selection.openLibraryMatches.isEmpty {
+                                section("NEW BOOK", rows: selection.openLibraryMatches)
                             }
-                            if openLibrarySearching {
+                            if selection.isSearchingOpenLibrary {
                                 HStack(spacing: 8) {
                                     ProgressView().tint(Theme.Palette.muted)
                                     Text("Searching…")
@@ -56,7 +53,7 @@ public struct BookSelectionView: View {
                                 .padding(.vertical, 12)
                                 .padding(.horizontal, 24)
                             }
-                            if let libraryError {
+                            if let libraryError = selection.libraryError {
                                 Text(libraryError)
                                     .font(Theme.Typography.sans(12))
                                     .foregroundStyle(Theme.Palette.danger)
@@ -69,11 +66,11 @@ public struct BookSelectionView: View {
                                 .padding(.bottom, 36)
                         }
                     }
-                    .refreshable { await refreshLibrary(force: true) }
+                    .refreshable { await selection.refreshLibrary(force: true) }
                 }
             }
             .navigationBarHidden(true)
-            .navigationDestination(item: $selection) { book in
+            .navigationDestination(item: $selection.selectedBook) { book in
                 CaptureFlowContainer(book: book)
                     .environmentObject(state)
             }
@@ -83,14 +80,11 @@ public struct BookSelectionView: View {
             .sheet(item: $manualEntry) { _ in
                 ManualBookEntryView { book in
                     manualEntry = nil
-                    select(book)
+                    selection.selectedBook = book
                 }
             }
             .onAppear {
-                Task { await loadInitial() }
-            }
-            .onChange(of: query) { _, newValue in
-                debounceSearch(query: newValue)
+                Task { await selection.load() }
             }
         }
     }
@@ -130,7 +124,7 @@ public struct BookSelectionView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 16))
                 .foregroundStyle(Theme.Palette.muted)
-            TextField("Title or author", text: $query)
+            TextField("Title or author", text: $selection.query)
                 .font(Theme.Typography.sans(15))
                 .foregroundStyle(Theme.Palette.ink)
                 .textInputAutocapitalization(.words)
@@ -156,7 +150,7 @@ public struct BookSelectionView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 6)
             ForEach(rows) { book in
-                BookRow(book: book) { select(book) }
+                BookRow(book: book) { selection.selectedBook = book }
                 Rectangle()
                     .fill(Theme.Palette.lineSoft)
                     .frame(height: 1)
@@ -183,81 +177,6 @@ public struct BookSelectionView: View {
             )
         }
         .buttonStyle(.plain)
-    }
-
-    private func select(_ book: Book) {
-        Task {
-            try? await state.bookStore.recordUsage(of: book)
-            recents = await state.bookStore.state.recents
-        }
-        selection = book
-    }
-
-    private func loadInitial() async {
-        let cache = await state.bookStore.state
-        recents = cache.recents
-        libraryMatches = []
-        if cache.library.isEmpty {
-            await refreshLibrary(force: true)
-        } else {
-            libraryLoaded = true
-            let needs = await state.bookStore.libraryNeedsRefresh(maxAgeHours: state.libraryRefreshIntervalHours)
-            if needs { await refreshLibrary(force: false) }
-        }
-    }
-
-    private func refreshLibrary(force: Bool) async {
-        guard let client = state.currentReadwiseClient() else { return }
-        if libraryRefreshing && !force { return }
-        libraryRefreshing = true
-        defer { libraryRefreshing = false }
-        do {
-            let books = try await client.listBooks()
-            try await state.bookStore.setLibrary(books)
-            libraryLoaded = true
-            libraryError = nil
-            recomputeMatches()
-        } catch ReadwiseError.invalidToken {
-            libraryError = "Readwise token rejected — update it in Settings."
-        } catch {
-            libraryError = "Couldn't refresh library: \(error.localizedDescription)"
-        }
-    }
-
-    private func debounceSearch(query: String) {
-        searchTask?.cancel()
-        searchTask = Task {
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            if Task.isCancelled { return }
-            await runSearch(query: query)
-        }
-    }
-
-    private func runSearch(query: String) async {
-        recomputeMatches()
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            openLibraryMatches = []
-            return
-        }
-        openLibrarySearching = true
-        defer { openLibrarySearching = false }
-        do {
-            let results = try await state.openLibrary.search(query: trimmed)
-            if Task.isCancelled { return }
-            openLibraryMatches = BookSearch.merge(readwise: libraryMatches, openLibrary: results)
-                .filter { $0.source != .readwise }
-        } catch {
-            openLibraryMatches = []
-        }
-    }
-
-    private func recomputeMatches() {
-        let cache = state.bookStore
-        Task {
-            let library = await cache.state.library
-            libraryMatches = BookSearch.filterLibrary(library, query: query)
-        }
     }
 }
 

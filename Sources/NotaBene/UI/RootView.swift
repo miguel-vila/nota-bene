@@ -11,7 +11,7 @@ public struct RootView: View {
         case .setup:
             SetupView()
         case .ready:
-            BookSelectionView()
+            BookSelectionView(state: state)
         }
     }
 }

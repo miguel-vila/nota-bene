@@ -4,6 +4,7 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 xcuserdata/
+*.xcworkspace/xcshareddata/swiftpm/Package.resolved
 .DS_Store
 design_handoff_highlight_capture/
 

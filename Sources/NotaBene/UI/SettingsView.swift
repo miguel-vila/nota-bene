@@ -939,60 +939,6 @@ private struct NotionParentPagePickerView: View {
     }
 }
 
-// MARK: - Toggle row
-
-private struct ToggleRow: View {
-    let title: String
-    let subtitle: String?
-    @Binding var isOn: Bool
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(Theme.Typography.sans(14, weight: .medium))
-                    .foregroundStyle(Theme.Palette.ink)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(Theme.Typography.sans(11))
-                        .foregroundStyle(Theme.Palette.muted)
-                }
-            }
-            Spacer()
-            BrandedToggle(isOn: $isOn)
-        }
-        .padding(.vertical, 4)
-    }
-}
-
-private struct BrandedToggle: View {
-    @Binding var isOn: Bool
-
-    var body: some View {
-        Button { isOn.toggle() } label: {
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule()
-                    .fill(isOn ? Theme.Palette.ink : Theme.Palette.line)
-                    .frame(width: 44, height: 26)
-                ZStack {
-                    if isOn {
-                        Circle()
-                            .fill(Theme.Palette.accent)
-                            .frame(width: 6, height: 6)
-                            .offset(x: -16)
-                    }
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: 22, height: 22)
-                        .padding(.horizontal, 2)
-                }
-            }
-            .animation(.easeInOut(duration: 0.18), value: isOn)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 // MARK: - Add provider key (focused, single-step)
 
 struct AddProviderKeyView: View {

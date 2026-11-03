@@ -153,27 +153,31 @@ public struct PrimaryButtonStyle: ButtonStyle {
 }
 
 public struct SecondaryButtonStyle: ButtonStyle {
+    var foreground: Color = Theme.Palette.ink
     var height: CGFloat = Theme.Layout.secondaryButtonHeight
+    var enabled: Bool = true
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.Typography.sans(15, weight: .medium))
-            .foregroundStyle(Theme.Palette.ink)
+            .foregroundStyle(enabled ? foreground : Theme.Palette.muted)
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Layout.cardRadius)
-                    .fill(Theme.Palette.surface)
+                    .fill(enabled ? Theme.Palette.surface : Theme.Palette.bgAlt)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Layout.cardRadius)
-                    .stroke(Theme.Palette.line, lineWidth: 1)
+                    .stroke(enabled ? Theme.Palette.line : Theme.Palette.lineSoft, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
+/// For the dark camera surface only. The white label and translucent fill
+/// read as a disabled control over the cream Settings background.
 public struct GlassButtonStyle: ButtonStyle {
     var height: CGFloat = Theme.Layout.secondaryButtonHeight
     var fullWidth: Bool = true
@@ -237,6 +241,77 @@ public struct ThemedCard<Content: View>: View {
                 RoundedRectangle(cornerRadius: Theme.Layout.cardRadius)
                     .stroke(Theme.Palette.line, lineWidth: 1)
             )
+    }
+}
+
+// MARK: - Toggle row
+
+/// Labelled settings row with the app's own switch. Every toggle in the app
+/// uses this so none falls back to the system switch, which is nearly
+/// invisible against the cream surface.
+public struct ToggleRow: View {
+    let title: String
+    let subtitle: String?
+    @Binding var isOn: Bool
+
+    public init(title: String, subtitle: String?, isOn: Binding<Bool>) {
+        self.title = title
+        self.subtitle = subtitle
+        self._isOn = isOn
+    }
+
+    public var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.Typography.sans(14, weight: .medium))
+                    .foregroundStyle(Theme.Palette.ink)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(Theme.Typography.sans(11))
+                        .foregroundStyle(Theme.Palette.muted)
+                }
+            }
+            Spacer()
+            BrandedToggle(isOn: $isOn)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+public struct BrandedToggle: View {
+    @Environment(\.isEnabled) private var isEnabled
+    @Binding var isOn: Bool
+
+    public init(isOn: Binding<Bool>) {
+        self._isOn = isOn
+    }
+
+    public var body: some View {
+        Button { isOn.toggle() } label: {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(isOn ? Theme.Palette.ink : Theme.Palette.line)
+                    .frame(width: 44, height: 26)
+                ZStack {
+                    if isOn {
+                        Circle()
+                            .fill(Theme.Palette.accent)
+                            .frame(width: 6, height: 6)
+                            .offset(x: -16)
+                    }
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 22, height: 22)
+                        .padding(.horizontal, 2)
+                }
+            }
+            .animation(.easeInOut(duration: 0.18), value: isOn)
+            // A plain Button does not dim on .disabled(); do it here so a
+            // caller never has to pair .disabled() with its own opacity.
+            .opacity(isEnabled ? 1 : 0.45)
+        }
+        .buttonStyle(.plain)
     }
 }
 

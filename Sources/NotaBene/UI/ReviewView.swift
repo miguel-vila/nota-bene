@@ -210,8 +210,7 @@ struct ReviewView: View {
                         .foregroundStyle(Theme.Palette.muted)
                 }
                 Spacer()
-                Toggle("", isOn: $state.evalRecordThisCapture)
-                    .labelsHidden()
+                BrandedToggle(isOn: $state.evalRecordThisCapture)
                     .disabled(flow.stage == .submitting)
             }
             .padding(.horizontal, 14)

@@ -22,7 +22,7 @@ struct SettingsDeveloperSection: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionLabel("DEVELOPER")
             ThemedCard {
-                ToggleRowLocal(
+                ToggleRow(
                     title: "Show response payload on errors",
                     subtitle: "Includes raw HTTP body in error messages",
                     isOn: $state.debugMode
@@ -30,7 +30,7 @@ struct SettingsDeveloperSection: View {
             }
             ThemedCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    ToggleRowLocal(
+                    ToggleRow(
                         title: "Capture eval samples",
                         subtitle: "Adds a per-capture “Save eval sample” toggle on the Review screen, so you choose which extractions to keep.",
                         isOn: $enabled
@@ -83,22 +83,28 @@ struct SettingsDeveloperSection: View {
     }
 
     private var actions: some View {
-        HStack(spacing: 10) {
+        let hasSamples = snapshot.sampleCount > 0
+        return HStack(spacing: 10) {
             Button {
                 Task { await exportSamples() }
             } label: {
-                exporting ? AnyView(ProgressView()) : AnyView(Text("Export samples"))
+                exporting
+                    ? AnyView(ProgressView().tint(Theme.Palette.bg))
+                    : AnyView(Text("Export samples"))
             }
-            .buttonStyle(GlassButtonStyle())
-            .disabled(snapshot.sampleCount == 0 || exporting)
+            .buttonStyle(PrimaryButtonStyle(
+                height: Theme.Layout.secondaryButtonHeight,
+                enabled: hasSamples && !exporting
+            ))
+            .disabled(!hasSamples || exporting)
 
             Button(role: .destructive) {
                 showingClearConfirm = true
             } label: {
                 Text("Clear samples")
             }
-            .buttonStyle(GlassButtonStyle())
-            .disabled(snapshot.sampleCount == 0)
+            .buttonStyle(SecondaryButtonStyle(foreground: Theme.Palette.danger, enabled: hasSamples))
+            .disabled(!hasSamples)
         }
     }
 
@@ -162,30 +168,6 @@ private struct ActivityShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
-}
-
-private struct ToggleRowLocal: View {
-    let title: String
-    let subtitle: String?
-    @Binding var isOn: Bool
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(Theme.Typography.sans(14, weight: .medium))
-                    .foregroundStyle(Theme.Palette.ink)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(Theme.Typography.sans(11))
-                        .foregroundStyle(Theme.Palette.muted)
-                }
-            }
-            Spacer()
-            Toggle("", isOn: $isOn).labelsHidden()
-        }
-        .padding(.vertical, 4)
-    }
 }
 
 extension EvalSampleWriter.DirSnapshot {
